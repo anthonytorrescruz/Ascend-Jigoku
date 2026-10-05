@@ -6,7 +6,7 @@ namespace AscendJigoku.UI
 {
     public sealed class MainMenu : MonoBehaviour
     {
-        [SerializeField] private string gameplayScene = "DebugWorld";
+        [SerializeField] private string gameplayScene = "Main";
         private bool starting;
 
         private void Start()
