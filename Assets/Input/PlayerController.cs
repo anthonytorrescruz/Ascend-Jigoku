@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 public class PlayerController : MonoBehaviour
 {
@@ -12,15 +13,28 @@ public class PlayerController : MonoBehaviour
     private Vector2 velocityRef;
 
     [SerializeField] private float smoothTime = 0.01f;
-    [SerializeField]private bool facingRight = true;
+    [SerializeField] private bool facingRight = true;
+
+    public bool IsFacingRight => facingRight;
+
+    [Header("Damage Knockback")]
+    [Min(0), SerializeField] private float knockbackSpeed = 8f;
+    [Min(0), SerializeField] private float knockbackDuration = 0.15f;
+    private float knockbackEndsAt = float.NegativeInfinity;
+    private float knockbackVelocity;
+    public bool IsKnockedBack => Time.time < knockbackEndsAt;
 
     [Header("Jump Functionality")]
 
     [SerializeField] private bool isGrounded;
+    // Combat queries the current physics state instead of depending on which
+    // component's Update happened first this frame.
+    public bool IsGrounded => CheckGrounded();
     [SerializeField] private bool wasGrounded;
     [SerializeField] private float jumpForce = 10f;
     [SerializeField] private int maxJumpCount = 2;
     private int jumpCount;
+    private readonly List<Collider2D> groundContacts = new List<Collider2D>();
     [SerializeField] private Transform groundCheck;
     [SerializeField] private float groundCheckRadius = 0.2f;
     [SerializeField] private LayerMask groundLayer;
@@ -46,6 +60,8 @@ public class PlayerController : MonoBehaviour
         controller.PlayerInput.Jump.performed -= OnJump;
     }
 
+    private void OnDestroy() => controller.Dispose();
+
     void Update()
     {
         // updates the value depending on if the player moves left or right
@@ -55,7 +71,7 @@ public class PlayerController : MonoBehaviour
         HandleFlip();
 
         // checks to see if the player is on the ground
-        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+        isGrounded = CheckGrounded();
 
         if(!wasGrounded && isGrounded)
         {
@@ -63,6 +79,32 @@ public class PlayerController : MonoBehaviour
         }
 
         wasGrounded = isGrounded;
+    }
+
+    private bool CheckGrounded()
+    {
+        // A jump/pogo has already left the ground even if the feet probe still
+        // touches the floor for the first frame of upward movement.
+        if (rb == null || groundCheck == null || rb.linearVelocityY > 0.01f)
+        {
+            return false;
+        }
+
+        ContactFilter2D filter = new ContactFilter2D { useTriggers = false };
+        filter.SetLayerMask(groundLayer);
+        groundContacts.Clear();
+        Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, filter, groundContacts);
+
+        foreach (Collider2D contact in groundContacts)
+        {
+            if (!contact.isTrigger && contact.attachedRigidbody != rb
+                && !contact.transform.IsChildOf(transform))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void HandleFlip()
@@ -91,14 +133,36 @@ public class PlayerController : MonoBehaviour
     }
     void FixedUpdate()
     {
+        if (IsKnockedBack)
+        {
+            rb.linearVelocityX = knockbackVelocity;
+            velocityRef.x = 0;
+            return;
+        }
         // the targetVelocity is what the speed we want to get to is
         targetVelocity = new Vector2(moveInput.x * moveSpeed, rb.linearVelocityY);
         // slowly builds up to the targetVelocity making the movement feel smoother
         rb.linearVelocity = Vector2.SmoothDamp(rb.linearVelocity, targetVelocity, ref velocityRef, smoothTime);
     }
 
+    public void ApplyHorizontalKnockback(float direction)
+    {
+        if (rb == null || direction == 0 || knockbackSpeed <= 0) return;
+        knockbackVelocity = Mathf.Sign(direction) * knockbackSpeed;
+        knockbackEndsAt = Time.time + knockbackDuration;
+        velocityRef.x = 0;
+        rb.linearVelocityX = knockbackVelocity;
+    }
+
+    public void CancelKnockback()
+    {
+        knockbackEndsAt = float.NegativeInfinity;
+        velocityRef.x = 0;
+    }
+
     private void OnJump(InputAction.CallbackContext context)
     {
+        if (context.ReadValue<float>() <= 0f) return;
         // if the sprite is grounded than apply the jumpforce to the y position.
         if(jumpCount < maxJumpCount)
         {
@@ -108,5 +172,19 @@ public class PlayerController : MonoBehaviour
             rb.linearVelocityY = 0;
             rb.linearVelocityY = jumpForce;
         }
+    }
+
+    public void PogoBounce()
+    {
+        isGrounded = false;
+
+        // Pogo is an external impulse. Do not spend or refill jumpCount.
+
+        // Preserve horizontal movement, but completely replace
+        // vertical movement with the normal jump velocity.
+        rb.linearVelocity = new Vector2(
+            rb.linearVelocity.x,
+            jumpForce
+        );
     }
 }

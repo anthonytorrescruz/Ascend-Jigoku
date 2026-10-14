@@ -1,16 +1,6 @@
-/*
- * F1: show/hide. Number keys run actions while the menu is open.
- * Starts automatically in the Editor and Development Builds; no scene setup.
- *
- * In OnEnable (using AscendJigoku.Debugging):
- *   DebugMenu.Watch(this, "Player", "Health", () => health);
- *   DebugMenu.Action(this, "Player", "Heal", 3, Heal);
- * In OnDisable:
- *   DebugMenu.RemoveAll(this);
- *
- * Use a unique action key (1-9). Getters only read values; actions call your
- * normal gameplay methods. The menu does not pause or consume gameplay input.
- */
+// F1: overhead stats and hitboxes. Number keys run registered debug actions.
+// OnEnable: DebugMenu.Watch(this, "Player", "Health", () => health);
+// OnDisable: DebugMenu.RemoveAll(this);  Actions use DebugMenu.Action(...).
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -23,6 +13,7 @@ namespace AscendJigoku.Debugging
     public sealed class DebugMenu : MonoBehaviour
     {
         public static bool IsOpen { get; private set; }
+        public static float DisplayScale => Mathf.Clamp(Screen.height / 720f, 0.65f, 2f);
 
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
@@ -67,8 +58,6 @@ namespace AscendJigoku.Debugging
         private static readonly List<Entry> entries = new List<Entry>();
         private static DebugMenu instance;
         private float nextRefresh;
-        private string message = "";
-        private string display = "";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -103,11 +92,15 @@ namespace AscendJigoku.Debugging
 
         private void Update()
         {
-            if (Pressed(0)) IsOpen = !IsOpen;
+            if (Pressed(0))
+            {
+                IsOpen = !IsOpen;
+                if (IsOpen) RefreshValues();
+            }
             if (Time.unscaledTime >= nextRefresh)
             {
                 entries.RemoveAll(e => e.Owner == null);
-                if (IsOpen) RefreshDisplay();
+                if (IsOpen) RefreshValues();
                 nextRefresh = Time.unscaledTime + 0.1f;
             }
             if (!IsOpen) return;
@@ -118,11 +111,11 @@ namespace AscendJigoku.Debugging
                 int matches = 0;
                 foreach (Entry entry in entries)
                     if (entry.Owner != null && entry.Key == key) { action = entry; matches++; }
-                if (matches > 1) { message = "Key " + key + " is assigned more than once."; continue; }
+                if (matches > 1) { Debug.LogWarning("Debug key " + key + " is assigned more than once."); continue; }
                 if (action == null) continue;
-                try { action.Run(); message = action.Label; }
-                catch (Exception exception) { message = exception.Message; }
-                RefreshDisplay();
+                try { action.Run(); }
+                catch (Exception exception) { Debug.LogException(exception); }
+                RefreshValues();
             }
         }
 
@@ -140,37 +133,35 @@ namespace AscendJigoku.Debugging
 #endif
         }
 
-        private void RefreshDisplay()
+        private void RefreshValues()
         {
-            var text = new System.Text.StringBuilder();
-            string category = null;
             foreach (Entry entry in entries.ToArray())
             {
-                if (entry.Owner == null) continue;
-                if (category != entry.Category)
-                {
-                    category = entry.Category;
-                    text.AppendLine().AppendLine(category);
-                }
-                if (entry.Read != null)
-                {
-                    try { entry.Value = entry.Read(); }
-                    catch (Exception exception) { entry.Value = "Error: " + exception.Message; }
-                    text.AppendLine(entry.Owner.name + " / " + entry.Label + ": " + entry.Value);
-                }
-                else text.AppendLine("[" + entry.Key + "] " + entry.Label + " (" + entry.Owner.name + ")");
+                if (entry.Owner == null || entry.Read == null) continue;
+                try { entry.Value = entry.Read(); }
+                catch (Exception exception) { entry.Value = "Error: " + exception.Message; }
             }
-            display = text.Length > 0 ? text.ToString() : "\nNo values registered yet.";
         }
 
-        private void OnGUI()
+        internal static string Readout(Component entity)
         {
-            if (!IsOpen) return;
-            var content = new GUIContent("DEBUG  [F1 hide]\n" + display + "\n" + message);
-            float width = Mathf.Min(350f, Screen.width - 24f);
-            float height = GUI.skin.label.CalcHeight(content, width - 20f) + 20f;
-            GUI.Box(new Rect(12, 12, width, height), GUIContent.none);
-            GUI.Label(new Rect(22, 20, width - 20f, height - 12f), content);
+            var text = new System.Text.StringBuilder();
+            foreach (Entry entry in entries)
+            {
+                var component = entry.Owner as Component;
+                GameObject owner = component != null ? component.gameObject : entry.Owner as GameObject;
+                if (owner != entity.gameObject || entry.Read == null) continue;
+                text.Append("\n").Append(entry.Label).Append(": ").Append(entry.Value);
+            }
+            return text.ToString();
+        }
+
+        internal static void DrawBackdrop(Rect rect)
+        {
+            Color previous = GUI.color;
+            GUI.color = new Color(0.06f, 0.06f, 0.06f, 0.9f);
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.color = previous;
         }
 
         private void OnDisable() { if (instance == this) IsOpen = false; }

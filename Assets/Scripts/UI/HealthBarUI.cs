@@ -4,15 +4,27 @@ public class HealthBarUI : MonoBehaviour
 {
     [SerializeField] private PlayerHealth playerHealth;
     [SerializeField] private GameObject[] healthSegments;
+    private bool isBound;
 
     private void Start()
     {
-        if (playerHealth == null)
+        if (!isBound)
         {
-            playerHealth = FindAnyObjectByType<PlayerHealth>();
+            Bind(playerHealth != null ? playerHealth : FindAnyObjectByType<PlayerHealth>());
+        }
+    }
+
+    public void Bind(PlayerHealth health)
+    {
+        if (isBound && playerHealth != null)
+        {
+            playerHealth.HealthChanged -= UpdateHealthBar;
         }
 
-        if (playerHealth != null)
+        playerHealth = health;
+        isBound = playerHealth != null;
+
+        if (isBound && playerHealth != null)
         {
             playerHealth.HealthChanged += UpdateHealthBar;
 
@@ -35,7 +47,11 @@ public class HealthBarUI : MonoBehaviour
     {
         for (int i = 0; i < healthSegments.Length; i++)
         {
-            healthSegments[i].SetActive(i < currentHealth);
+            bool shouldBeVisible = i < currentHealth;
+            if (healthSegments[i].activeSelf != shouldBeVisible)
+            {
+                healthSegments[i].SetActive(shouldBeVisible);
+            }
         }
     }
 }

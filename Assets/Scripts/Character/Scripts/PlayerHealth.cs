@@ -5,9 +5,12 @@ using UnityEngine.SceneManagement;
 public class PlayerHealth : MonoBehaviour
 {
     [SerializeField] private int maxHealth = 3;
+    [Tooltip("Protection after damage so body contact and an attack do not charge twice.")]
+    [Min(0), SerializeField] private float damageCooldownSeconds = 0.35f;
+    private float invulnerableUntil;
 
     private int currentHealth;
-    private PlayerRespawn playerRespawn;
+    private PlayerController playerController;
 
     public int CurrentHealth => currentHealth;
     public int MaxHealth => maxHealth;
@@ -17,7 +20,7 @@ public class PlayerHealth : MonoBehaviour
     private void Awake()
     {
         currentHealth = maxHealth;
-        playerRespawn = GetComponent<PlayerRespawn>();
+        playerController = GetComponent<PlayerController>();
     }
 
     private void Start()
@@ -25,10 +28,12 @@ public class PlayerHealth : MonoBehaviour
         HealthChanged?.Invoke(currentHealth, maxHealth);
     }
 
-    public void TakeDamage(int amount, bool respawnAfterDamage)
+    public bool TakeDamage(int amount)
     {
-        if (amount <= 0)
-            return;
+        if (amount <= 0 || currentHealth <= 0 || Time.time < invulnerableUntil)
+            return false;
+
+        invulnerableUntil = Time.time + damageCooldownSeconds;
 
         currentHealth = Mathf.Max(0, currentHealth - amount);
 
@@ -40,14 +45,16 @@ public class PlayerHealth : MonoBehaviour
         if (currentHealth <= 0)
         {
             Die();
-            return;
         }
+        return true;
+    }
 
-        // If the player is still alive, respawn at the latest checkpoint.
-        if (respawnAfterDamage && playerRespawn != null)
-        {
-            playerRespawn.Respawn();
-        }
+    public bool TakeCombatDamage(int amount, float knockbackDirection)
+    {
+        if (!TakeDamage(amount)) return false;
+        if (currentHealth > 0 && playerController != null)
+            playerController.ApplyHorizontalKnockback(knockbackDirection);
+        return true;
     }
 
     private void Die()

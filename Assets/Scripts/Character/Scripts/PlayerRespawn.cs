@@ -22,11 +22,14 @@ public class PlayerRespawn : MonoBehaviour
 
     public void Respawn()
     {
+        GetComponent<PlayerController>()?.CancelKnockback();
+        GetComponent<PlayerParry>()?.Cancel();
         // Stop existing movement before teleporting.
         if (rb != null)
         {
             rb.linearVelocity = Vector2.zero;
             rb.angularVelocity = 0f;
+            rb.position = respawnPosition;
         }
 
         transform.position = respawnPosition;
