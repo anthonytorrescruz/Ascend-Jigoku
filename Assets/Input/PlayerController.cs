@@ -109,10 +109,10 @@ public class PlayerController : MonoBehaviour
 
     private void HandleFlip()
     {
-        // checks if the player is moving
-        if(Mathf.Abs(rb.linearVelocityX) > 0.1f)
+        // Facing follows deliberate movement, never a damage impulse or its residual velocity.
+        if (!IsKnockedBack && Mathf.Abs(moveInput.x) > 0.1f)
         {
-            bool moveRight = rb.linearVelocityX > 0;
+            bool moveRight = moveInput.x > 0;
             // if player is moving one direction but facing the wrong direction
             if(moveRight != facingRight)
             {

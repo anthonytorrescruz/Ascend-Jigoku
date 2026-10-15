@@ -1,12 +1,18 @@
 using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using AscendJigoku.UI;
 
 public class PlayerHealth : MonoBehaviour
 {
     [SerializeField] private int maxHealth = 3;
     [Tooltip("Protection after damage so body contact and an attack do not charge twice.")]
     [Min(0), SerializeField] private float damageCooldownSeconds = 0.35f;
+    [Header("Death Screen")]
+    [Tooltip("Show YOU DIED with Retry and Give Up. Disable to restart immediately everywhere.")]
+    [SerializeField] private bool showDeathScreen = true;
+    [Tooltip("Restart immediately during Unity playtesting. Turn this off to preview the death screen. Builds still show it.")]
+    [SerializeField] private bool skipDeathScreenInEditor = true;
     private float invulnerableUntil;
 
     private int currentHealth;
@@ -14,6 +20,7 @@ public class PlayerHealth : MonoBehaviour
 
     public int CurrentHealth => currentHealth;
     public int MaxHealth => maxHealth;
+    public bool ShouldShowDeathScreen => showDeathScreen && !(Application.isEditor && skipDeathScreenInEditor);
 
     public event Action<int, int> HealthChanged;
 
@@ -41,7 +48,7 @@ public class PlayerHealth : MonoBehaviour
 
         HealthChanged?.Invoke(currentHealth, maxHealth);
 
-        // If the player has no health left, restart the current scene.
+        // Surviving hits never leave gameplay; only zero health enters the death flow.
         if (currentHealth <= 0)
         {
             Die();
@@ -59,10 +66,15 @@ public class PlayerHealth : MonoBehaviour
 
     private void Die()
     {
-        Debug.Log("Player died. Restarting scene.");
-
-        SceneManager.LoadScene(
-            SceneManager.GetActiveScene().buildIndex
-        );
+        if (ShouldShowDeathScreen)
+        {
+            if (playerController != null) playerController.enabled = false;
+            var combat = GetComponent<PlayerCombat>();
+            if (combat != null) combat.enabled = false;
+            var parry = GetComponent<PlayerParry>();
+            if (parry != null) parry.enabled = false;
+            DeathScreen.Show(gameObject.scene);
+        }
+        else SceneManager.LoadScene(gameObject.scene.name);
     }
 }

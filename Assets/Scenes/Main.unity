@@ -1271,6 +1271,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHealth
   maxHealth: 3
   damageCooldownSeconds: 0.35
+  showDeathScreen: 1
+  skipDeathScreenInEditor: 0
 --- !u!114 &1512326398
 MonoBehaviour:
   m_ObjectHideFlags: 0

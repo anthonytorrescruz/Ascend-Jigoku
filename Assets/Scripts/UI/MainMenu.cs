@@ -27,7 +27,9 @@ namespace AscendJigoku.UI
             SceneManager.LoadScene(gameplayScene);
         }
 
-        public void QuitGame()
+        public void QuitGame() => QuitApplication();
+
+        public static void QuitApplication()
         {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
