@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 347af698dfab4cea9c5f27ea286a2880, type: 3}
+  m_Name: Brute
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyDefinition
+  displayName: Brute
+  movement: 1
+  maxHealth: 6
+  moveSpeed: 1.1
+  acceleration: 18
+  gravityScale: 3
+  patrolRadius: 2
+  stoppingDistance: 0.7
+  aggroRadius: 7
+  leashRadius: 12
+  loseSightSeconds: 1.5
+  terrainLayers:
+    serializedVersion: 2
+    m_Bits: 8
+  jumpSpeed: 10
+  jumpForwardSpeed: 4
+  jumpCooldown: 1
+  jumpSearchDistance: 4
+  maximumDrop: 2
+  hoverHeight: 1.4
+  damage: 2
+  windupFrames: 42
+  activeFrames: 6
+  recoverySeconds: 1.2
+  attackSize: {x: 1.6, y: 1.6}
+  predictionFrames: 4
+  maximumPredictionDistance: 1
+  allowDownAttack: 0
+  contactDamage: 0
+  contactCooldown: 0.5
+  evadeAttacks: 0
+  reactionSeconds: 0.06
+  evadeSeconds: 0.2
+  evadeCooldown: 1.5
+  evadeSpeed: 3.5
+  knockbackMultiplier: 0.35
+  knockbackVelocity: {x: 6, y: 2}
+  hitStunSeconds: 0.08

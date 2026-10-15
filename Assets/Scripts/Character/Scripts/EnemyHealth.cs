@@ -9,18 +9,25 @@ public class EnemyHealth : MonoBehaviour
     private int currentHealth;
 
     public int CurrentHealth => currentHealth;
-    public int MaxHealth => maxHealth;
+    public int MaxHealth
+    {
+        get
+        {
+            var definition = GetComponent<EnemyCombat>()?.Definition;
+            return definition != null ? Mathf.Max(1, definition.maxHealth) : maxHealth;
+        }
+    }
 
     public event Action<int, int> HealthChanged;
 
     private void Awake()
     {
-        currentHealth = maxHealth;
+        currentHealth = MaxHealth;
     }
 
     private void Start()
     {
-        HealthChanged?.Invoke(currentHealth, maxHealth);
+        HealthChanged?.Invoke(currentHealth, MaxHealth);
     }
 
     public void TakeDamage(int amount)
@@ -35,17 +42,18 @@ public class EnemyHealth : MonoBehaviour
             currentHealth - amount
         );
 
+        GetComponent<CombatFeedback>()?.Hit();
         Debug.Log(
             gameObject.name +
             " health: " +
             currentHealth +
             "/" +
-            maxHealth
+            MaxHealth
         );
 
         HealthChanged?.Invoke(
             currentHealth,
-            maxHealth
+            MaxHealth
         );
 
         if (currentHealth <= 0)
@@ -54,10 +62,20 @@ public class EnemyHealth : MonoBehaviour
         }
     }
 
+    public bool TakeCombatDamage(int amount, Vector2 awayFromAttacker)
+    {
+        if (amount <= 0 || currentHealth <= 0) return false;
+        TakeDamage(amount);
+        if (currentHealth > 0) GetComponent<EnemyMotor>()?.TakeHit(awayFromAttacker);
+        return true;
+    }
+
     private void Die()
     {
         Debug.Log(gameObject.name + " died.");
 
+        GetComponent<EnemyCombat>()?.CancelIntent();
+        GetComponent<CombatAttack>()?.CancelAll();
         Destroy(gameObject);
     }
 }

@@ -103,7 +103,7 @@ namespace AscendJigoku.Debugging
                 if (IsOpen) RefreshValues();
                 nextRefresh = Time.unscaledTime + 0.1f;
             }
-            if (!IsOpen) return;
+            if (!IsOpen || Time.timeScale <= 0) return;
             for (int key = 1; key <= 9; key++)
             {
                 if (!Pressed(key)) continue;

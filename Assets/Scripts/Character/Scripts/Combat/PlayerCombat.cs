@@ -4,83 +4,93 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(PlayerController), typeof(CombatAttack), typeof(PlayerParry))]
 public class PlayerCombat : MonoBehaviour
 {
-    [Header("Attack Damage")]
     [Min(0), SerializeField] private int attackDamage = 1;
-    [Header("Attack Timing - Frames at 60 FPS")]
-    [Min(1), SerializeField] private int attackActiveFrames = 4;
-    [Min(0), SerializeField] private int attackCooldownFrames = 15;
-    [Header("Side Attack")]
-    [SerializeField] private Vector2 sideAttackSize = new Vector2(1.4f, 1f);
-    [SerializeField] private Vector2 sideAttackOffset = new Vector2(0.9f, 0f);
-    [Header("Up Attack - Ground or Air")]
-    [SerializeField] private Vector2 upAttackSize = new Vector2(1.5f, 1.3f);
-    [SerializeField] private Vector2 upAttackOffset = new Vector2(0f, 1f);
-    [Header("Down Attack - Air Only")]
-    [SerializeField] private Vector2 downAttackSize = new Vector2(1f, 1.2f);
-    [SerializeField] private Vector2 downAttackOffset = new Vector2(0f, -0.9f);
-    [Header("Damage Collision")]
-    [Tooltip("Damage layers; downward attacks can pogo Pogoable objects on any layer.")]
+    [Tooltip("Downward attacks can pogo Pogoable objects on any layer.")]
     [SerializeField] private LayerMask enemyLayers = ~0;
     private PlayerController playerController;
+    private PlayerHealth health;
     private PlayerActions controls;
     private CombatAttack attack;
     private PlayerParry parry;
     private float nextAttackAt;
+    private float bufferedUntil = float.NegativeInfinity;
+    private CombatDirection bufferedDirection;
     public CombatAttack Attack => attack;
+    public float RecoveryRemaining => Mathf.Max(0, nextAttackAt - Time.time);
+    public bool HasBufferedAttack => Time.time <= bufferedUntil;
+
     private void Awake()
     {
         playerController = GetComponent<PlayerController>();
+        health = GetComponent<PlayerHealth>();
         attack = GetComponent<CombatAttack>();
         parry = GetComponent<PlayerParry>();
         controls = new PlayerActions();
     }
     private void OnEnable() => controls.Enable();
-    private void OnDisable() => controls.Disable();
+    private void OnDisable()
+    {
+        controls.Disable();
+        Cancel();
+    }
     private void OnDestroy() => controls.Dispose();
     private void Update()
     {
-        if (controls.PlayerInput.Attack.WasPressedThisFrame()) TryAttack();
+        if (controls.PlayerInput.Attack.WasPressedThisFrame()) QueueAttack(ReadDirection());
+        Tick(Time.time);
     }
-    public bool TryAttack()
+    public void QueueAttack(CombatDirection direction)
     {
-        float now = Time.time;
-        if (now < nextAttackAt || attack.IsAttacking || parry.IsBusy) return false;
-        Vector2 movement = controls.PlayerInput.Move.ReadValue<Vector2>();
-        Keyboard keyboard = Keyboard.current;
-        bool down = movement.y < -0.5f || (keyboard != null
-            && (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed));
-        bool up = movement.y > 0.5f || (keyboard != null
-            && (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed));
-        CombatDirection direction = down && !playerController.IsGrounded ? CombatDirection.Down
-            : up ? CombatDirection.Up
-            : playerController.IsFacingRight ? CombatDirection.Right : CombatDirection.Left;
+        bufferedDirection = direction;
+        bufferedUntil = Time.time + Mathf.Max(0, attack.Settings.inputBufferSeconds);
+    }
+    public void Tick(float now)
+    {
+        if (now <= bufferedUntil && TryAttack(bufferedDirection, now))
+            bufferedUntil = float.NegativeInfinity;
+    }
+    public bool TryAttack() => TryAttack(ReadDirection(), Time.time);
+    private bool TryAttack(CombatDirection direction, float now)
+    {
+        if (!isActiveAndEnabled || (health != null && health.CurrentHealth <= 0)
+            || now < nextAttackAt || (attack.CurrentSwing != null && attack.CurrentSwing.IsActive(now))
+            || parry.PhaseAt(now) != ParryPhase.Idle) return false;
+        if (direction == CombatDirection.Down && playerController.IsGrounded) return false;
         GetAttackGeometry(direction, out Vector2 offset, out Vector2 size);
-        attack.BeginAttack(direction, offset, size, attackDamage, attackActiveFrames, enemyLayers, now);
-        nextAttackAt = now + attackCooldownFrames / CombatAttack.ReferenceFramesPerSecond;
+        var swing = attack.BeginAttack(direction, offset, size, attackDamage,
+            attack.Settings.playerActiveFrames, enemyLayers, now);
+        if (swing == null) return false;
+        nextAttackAt = swing.EndsAt + Mathf.Max(0, attack.Settings.playerRecoveryFrames) / CombatAttack.ReferenceFramesPerSecond;
         return true;
+    }
+    private CombatDirection ReadDirection()
+    {
+        Vector2 movement = controls.PlayerInput.Move.ReadValue<Vector2>();
+        return movement.y < -0.5f && !playerController.IsGrounded ? CombatDirection.Down
+            : movement.y > 0.5f ? CombatDirection.Up
+            : playerController.IsFacingRight ? CombatDirection.Right : CombatDirection.Left;
+    }
+    public void Cancel()
+    {
+        bufferedUntil = float.NegativeInfinity;
+        nextAttackAt = 0;
+        attack?.CancelAll();
     }
     public void GetAttackGeometry(CombatDirection direction, out Vector2 offset, out Vector2 size)
     {
-        switch (direction)
-        {
-            case CombatDirection.Up: offset = upAttackOffset; size = upAttackSize; break;
-            case CombatDirection.Down: offset = downAttackOffset; size = downAttackSize; break;
-            default:
-                offset = new Vector2(Mathf.Abs(sideAttackOffset.x)
-                    * (direction == CombatDirection.Left ? -1 : 1), sideAttackOffset.y);
-                size = sideAttackSize;
-                break;
-        }
+        var source = attack != null ? attack : GetComponent<CombatAttack>();
+        size = source.Settings.playerAttackSize;
+        size = new Vector2(Mathf.Max(0.01f, size.x), Mathf.Max(0.01f, size.y));
+        offset = source.GetAttackOffset(direction, size);
     }
     private void OnDrawGizmosSelected()
     {
-        Vector2 position = transform.position;
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireCube(position + new Vector2(Mathf.Abs(sideAttackOffset.x), sideAttackOffset.y), sideAttackSize);
-        Gizmos.DrawWireCube(position + new Vector2(-Mathf.Abs(sideAttackOffset.x), sideAttackOffset.y), sideAttackSize);
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireCube(position + upAttackOffset, upAttackSize);
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireCube(position + downAttackOffset, downAttackSize);
+        if (Application.isPlaying && !AscendJigoku.Debugging.DebugMenu.IsOpen) return;
+        foreach (CombatDirection direction in System.Enum.GetValues(typeof(CombatDirection)))
+        {
+            GetAttackGeometry(direction, out Vector2 offset, out Vector2 size);
+            Gizmos.color = direction == CombatDirection.Down ? Color.blue : Color.cyan;
+            Gizmos.DrawWireCube((Vector2)transform.position + offset, size);
+        }
     }
 }

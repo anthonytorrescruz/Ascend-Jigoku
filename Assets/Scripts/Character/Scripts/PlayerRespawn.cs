@@ -22,6 +22,9 @@ public class PlayerRespawn : MonoBehaviour
 
     public void Respawn()
     {
+        GetComponent<PlayerCombat>()?.Cancel();
+        GetComponent<CombatAttack>()?.CancelAll();
+        GetComponent<CombatFeedback>()?.ResetFeedback();
         GetComponent<PlayerController>()?.CancelKnockback();
         GetComponent<PlayerParry>()?.Cancel();
         // Stop existing movement before teleporting.

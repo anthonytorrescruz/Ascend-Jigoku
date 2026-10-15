@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6911fde383004311b7b132f5054ca5ce, type: 3}
+  m_Name: CombatSettings
+  m_EditorClassIdentifier: Assembly-CSharp::CombatSettings
+  playerAttackSize: {x: 2, y: 2}
+  playerActiveFrames: 6
+  playerRecoveryFrames: 8
+  inputBufferSeconds: 0.12
+  enemyAttackSize: {x: 1.25, y: 1.25}
+  enemyWindupFrames: 18
+  enemyActiveFrames: 6
+  enemyCooldownSeconds: 1
+  bodyClearance: 0.02
+  terrainLayers:
+    serializedVersion: 2
+    m_Bits: 8

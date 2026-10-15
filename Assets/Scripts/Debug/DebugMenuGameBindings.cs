@@ -59,7 +59,8 @@ namespace AscendJigoku.Debugging
 
         private static string EnemyState(CombatAttack attack, EnemyCombat combat)
         {
-            if (combat != null && combat.IsWindingUp) return "Windup";
+            if (combat != null && combat.IsStunned) return "Stunned " + (combat.StunnedUntil - Time.time).ToString("F2") + "s";
+            if (combat != null && combat.IsWindingUp) return "Windup " + combat.WindupRemaining.ToString("F2") + "s";
             if (attack != null && attack.IsAttacking) return AttackState(attack);
             float remaining = combat != null ? Mathf.Max(0, combat.NextAttackAt - Time.time) : 0;
             return remaining > 0 ? "Cooldown " + remaining.ToString("F1") + "s" : "Idle";
@@ -67,7 +68,7 @@ namespace AscendJigoku.Debugging
 
         private void OnGUI()
         {
-            if (!DebugMenu.IsOpen) return;
+            if (!DebugMenu.IsOpen || Time.timeScale <= 0) return;
             Camera camera = Camera.main;
             if (camera == null) return;
             if (labelStyle == null)
@@ -83,9 +84,20 @@ namespace AscendJigoku.Debugging
             {
                 if (player == null || !player.isActiveAndEnabled) continue;
                 var controller = player.GetComponent<PlayerController>();
+                var combat = player.GetComponent<PlayerCombat>();
+                var parry = player.GetComponent<PlayerParry>();
                 string text = player.name + "  HP " + player.CurrentHealth + "/" + player.MaxHealth
                     + Velocity(player) + "\nAttack: " + AttackState(player.GetComponent<CombatAttack>());
+                if (combat != null)
+                {
+                    if (!combat.Attack.IsAttacking && combat.RecoveryRemaining > 0)
+                        text += " / recovery " + combat.RecoveryRemaining.ToString("F2") + "s";
+                    if (combat.HasBufferedAttack) text += " / buffered";
+                    text += Geometry(combat.Attack);
+                }
                 if (controller != null) text += "  |  " + (controller.IsGrounded ? "Grounded" : "Airborne");
+                if (parry != null) text += "\nParry: " + parry.Phase + " / " + parry.RecoveryRemaining.ToString("F2") + "s";
+                text += "\nDamage protection: " + player.ProtectionRemaining.ToString("F2") + "s";
                 text += DebugMenu.Readout(player);
                 DrawLabel(camera, player, text, scale);
             }
@@ -94,10 +106,24 @@ namespace AscendJigoku.Debugging
                 if (enemy == null || !enemy.isActiveAndEnabled) continue;
                 string text = enemy.name + "  HP " + enemy.CurrentHealth + "/" + enemy.MaxHealth
                     + Velocity(enemy) + "\nAttack: " + EnemyState(enemy.GetComponent<CombatAttack>(), enemy.GetComponent<EnemyCombat>());
+                var brain = enemy.GetComponent<EnemyBrain>();
+                if (brain != null) text += "\nAI: " + brain.State + " / " + (brain.Definition != null ? brain.Definition.displayName : "No profile");
+                text += Geometry(enemy.GetComponent<CombatAttack>());
                 text += DebugMenu.Readout(enemy);
                 DrawLabel(camera, enemy, text, scale);
             }
             GUI.matrix = previous;
+        }
+
+        private static string Geometry(CombatAttack attack)
+        {
+            if (attack == null) return "";
+            var profile = attack.GetComponent<EnemyCombat>()?.Definition;
+            Vector2 size = attack.Team == CombatTeam.Player ? attack.Settings.playerAttackSize
+                : profile != null ? profile.attackSize : attack.Settings.enemyAttackSize;
+            if (!attack.IsAttacking) return "\nBox: " + size.ToString("F2");
+            return "\nBox: " + attack.CurrentSwing.Size.ToString("F2")
+                + " / offset " + attack.CurrentSwing.Offset.ToString("F2");
         }
 
         private static string Velocity(Component entity)

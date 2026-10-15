@@ -20,6 +20,7 @@ public class PlayerHealth : MonoBehaviour
 
     public int CurrentHealth => currentHealth;
     public int MaxHealth => maxHealth;
+    public float ProtectionRemaining => Mathf.Max(0, invulnerableUntil - Time.time);
     public bool ShouldShowDeathScreen => showDeathScreen && !(Application.isEditor && skipDeathScreenInEditor);
 
     public event Action<int, int> HealthChanged;
@@ -43,6 +44,7 @@ public class PlayerHealth : MonoBehaviour
         invulnerableUntil = Time.time + damageCooldownSeconds;
 
         currentHealth = Mathf.Max(0, currentHealth - amount);
+        GetComponent<CombatFeedback>()?.Hit();
 
         Debug.Log("Player health: " + currentHealth + "/" + maxHealth);
 
@@ -66,6 +68,9 @@ public class PlayerHealth : MonoBehaviour
 
     private void Die()
     {
+        GetComponent<PlayerCombat>()?.Cancel();
+        GetComponent<PlayerParry>()?.Cancel();
+        GetComponent<CombatAttack>()?.CancelAll();
         if (ShouldShowDeathScreen)
         {
             if (playerController != null) playerController.enabled = false;

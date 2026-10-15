@@ -42,24 +42,20 @@ namespace AscendJigoku.UI
             canvas.sortingOrder = 100;
             var scaler = GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.referenceResolution = new Vector2(1280, 720);
             // Fit the entire menu even in tall or ultrawide windows.
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-            var background = Rect("Black Background", transform, Vector2.zero, Vector2.zero);
+            var background = Rect("Background", transform, Vector2.zero, Vector2.zero);
             Stretch(background);
-            background.gameObject.AddComponent<Image>().color = Color.black;
+            background.gameObject.AddComponent<Image>().color = new Color(0.09f, 0.09f, 0.1f);
             var group = background.gameObject.AddComponent<CanvasGroup>();
-            var content = Rect("Menu", background, Vector2.zero, new Vector2(720, 520));
-            Label("Caption", content, "THE ASCENT ENDS HERE", new Vector2(0, 160), new Vector2(700, 50),
-                22, new Color(0.5f, 0.5f, 0.5f), FontStyle.Normal);
-            Label("Title", content, "YOU DIED", new Vector2(0, 65), new Vector2(720, 130),
-                96, new Color(0.9f, 0.08f, 0.1f), FontStyle.Bold);
-            var line = Rect("Red Accent", content, new Vector2(0, -35), new Vector2(120, 3));
-            line.gameObject.AddComponent<Image>().color = new Color(0.65f, 0.03f, 0.05f);
-            var retry = MenuButton("Retry", "RETRY", content, -115, Retry);
-            var giveUp = MenuButton("Give Up", "GIVE UP", content, -205, GiveUp);
+            var content = Rect("Menu", background, Vector2.zero, new Vector2(1000, 500));
+            Label("Title", content, "YOU DIED", new Vector2(0, 145), new Vector2(1000, 90),
+                64, Color.white, FontStyle.Normal);
+            var retry = MenuButton("Retry", "RETRY", content, -15, Retry);
+            var giveUp = MenuButton("Give Up", "GIVE UP", content, -95, GiveUp);
             var navigation = retry.navigation;
             navigation.mode = Navigation.Mode.Explicit;
             navigation.selectOnDown = giveUp;
@@ -123,21 +119,18 @@ namespace AscendJigoku.UI
 
         private Button MenuButton(string name, string label, Transform parent, float y, UnityEngine.Events.UnityAction action)
         {
-            var rect = Rect(name, parent, new Vector2(0, y), new Vector2(360, 70));
+            var rect = Rect(name, parent, new Vector2(0, y), new Vector2(320, 60));
             var image = rect.gameObject.AddComponent<Image>();
             image.color = Color.white;
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             var colors = button.colors;
-            colors.normalColor = new Color(0.08f, 0.08f, 0.08f);
-            colors.highlightedColor = colors.selectedColor = new Color(0.38f, 0.04f, 0.06f);
-            colors.pressedColor = new Color(0.65f, 0.06f, 0.08f);
-            colors.fadeDuration = 0.08f;
+            colors.normalColor = new Color(0.25f, 0.25f, 0.27f);
+            colors.highlightedColor = colors.selectedColor = new Color(0.52f, 0.52f, 0.55f);
+            colors.pressedColor = new Color(0.7f, 0.7f, 0.73f);
+            colors.fadeDuration = 0.1f;
             button.colors = colors;
-            var outline = rect.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0.48f, 0.05f, 0.07f);
-            outline.effectDistance = Vector2.one;
-            Label("Label", rect, label, Vector2.zero, rect.sizeDelta, 28, Color.white, FontStyle.Bold);
+            Label("Label", rect, label, Vector2.zero, rect.sizeDelta, 26, Color.white, FontStyle.Normal);
             button.onClick.AddListener(action);
             return button;
         }

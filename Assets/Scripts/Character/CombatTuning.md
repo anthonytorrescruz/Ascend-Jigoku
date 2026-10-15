@@ -1,72 +1,40 @@
-# Enemy and player combat
+# Combat tuning
 
-Main now uses a single instance of `Assets/Prefabs/Enemies/StationaryEnemy.prefab`.
-It combines the template's green triangle sprite with health, Pogoable, contact
-damage, and stationary combat. The old template was below the camera at Y=-20.85;
-the replacement is at (3.5, 0.32) on the visible ground. The empty Ground spawner
-was removed. Drag the prefab into a scene to add another enemy.
+Select `Assets/Settings/CombatSettings.asset` to tune shared player/enemy attacks.
+The player and StationaryEnemy reference it on their CombatAttack component.
+Duplicate and assign that asset for an enemy with different timing or reach.
+Damage and target layers remain on PlayerCombat / EnemyCombat.
 
-## Controls
+- Player attacks: 2 x 2, 6 active frames, 8 recovery frames after the active period.
+- Enemy attacks: 1.25 x 1.25, 18 windup frames, 6 active frames, 1-second cooldown.
+- Buffered attack/parry inputs: 0.12 seconds. Directions are captured when attack is pressed.
+- Frames mean seconds = frames / 60, independent of display refresh rate.
+- Attack boxes start outside the body's collider bounds in the selected direction.
+  Flipping or resizing the body updates placement automatically; clearance is 0.02 units.
+- Terrain Layers blocks attacks and pogo through solid level geometry, including enemy weapons.
 
-- J: attack in the facing direction.
-- Hold W or Up Arrow and press J: attack upward, on the ground or in the air.
-- Hold S or Down Arrow and press J: attack downward while airborne.
-- Space: normal jump. W/Up Arrow aim attacks instead of jumping.
+## Controls and outcomes
 
-## Inspector settings
+J attacks. W/Up + J attacks upward. S/Down + J attacks downward while airborne.
+Space jumps. L starts a separate body parry: 10 active frames, 16 recovery frames,
+and 30 frames of enemy stun on success. Parry timing is set on PlayerParry.
+Attacking and parrying cannot be active together. A parry may cancel attack recovery.
 
-Select **Enemy** or open **StationaryEnemy.prefab** to change shared defaults.
+Downward attacks pogo enemy bodies, active enemy weapons, and Pogoable objects.
+There is one bounce per swing, with no normal jump spent or refilled.
+Body hits deal damage once per enemy per swing; weapon pogo cancels that weapon swing.
+Player damage protection prevents attack/contact damage from charging twice.
+Respawn and death clear attacks, telegraphs, parries, and buffered inputs.
 
-| Component | Controls |
-| --- | --- |
-| Enemy Combat | Detection radius, detection interval, prediction frames, prediction distance cap, line of sight/obstacle layers, above threshold, windup frames, active frames, attack damage, side/up sizes and offsets, cooldown seconds, damage layers, target player. |
-| Combat Attack | Parry window frames, attack visualization, whether enemy attack damage respawns the player. |
-| Enemy Contact Damage | Body-contact damage, contact cooldown, whether body contact respawns the player. |
-| Enemy Health | Maximum enemy health. |
-| Player Combat | Damage, active/cooldown frames, side/up/down sizes and offsets, enemy damage layers. |
-| Player Health | Protection duration after damage, preventing simultaneous attack/contact hits from charging twice. |
+## Feedback and debugging
 
-Frames are measured at a reference rate of **60 FPS**: duration = frames / 60.
-This keeps timing consistent across display refresh rates. Defaults: enemy
-prediction 8 frames, windup 8 frames, active attack 6 frames, and a full 1-second
-cooldown after the active attack ends. Parry window defaults to 2 frames.
+F1 toggles overhead stats and attack/parry boxes. The display includes box size,
+active offset, recovery, parry phase, damage protection, and enemy stun.
+Hiding debug visuals never disables combat collision.
+Enemy body color warns during windup; player color indicates active parry/protection.
+Hit, parry, and pogo each have a small placeholder sound and a brief body flash.
+Add CombatFeedback explicitly to a prefab to assign replacement clips or change its volume.
+Set volume to zero to mute its cues. No external audio assets are required.
 
-The enemy predicts constant horizontal momentum plus airborne gravity, capped
-by Maximum Prediction Distance. It attacks left, right, or above when the
-predicted player bounds intersect the chosen attack box. Line of sight uses the
-configured obstacle layers. It does not chase or attack directly downward.
-
-Yellow shows windup; red shows an active enemy strike; blue shows a player
-strike; cyan briefly marks a parry. Disabling Show Attack changes visualization,
-not hit detection. Attack visuals and trigger colliders are created once and
-reused; overlaps reuse lists, targets are cached, and detection is throttled.
-
-## Parries and pogo
-
-Overlapping player/enemy strike boxes whose start times fall within the parry
-window cancel both swings. Damage is buffered for this small window and resolved
-after all combat updates, so script order cannot give one side an early hit.
-Contact damage occurring during that parry is also suppressed. Strikes outside
-the timing window behave normally.
-
-Enemy strike hitboxes are Pogoable triggers. An airborne downward hit bounces the
-player and cancels that strike without damaging the enemy through its weapon.
-The enemy body and generic Pogoable colliders can still be pogoed repeatedly.
-Pogo never spends or refills the normal jump budget. Body attacks still deal
-configured attack damage, so an enemy can die after repeated hits; set Player
-Combat > Attack Damage to 0 for indefinite pogo practice.
-
-## Verification
-
-59 Unity Play Mode checks passed, covering directions and controls, actual body
-collision, prediction, wall occlusion, cooldown, frame timing, parries in both
-orders and at timing boundaries, differing parry windows, body/weapon/generic
-pogo, and jump resource conservation. Five additional live checks in Main
-verified telegraphing, repeated attacks, cooldown, stationary physics, and damage.
-
-Test reports, scene backups, and the rerunnable verification scripts are in:
-`C:\Users\antho\Documents\Codex\2026-09-30\ch\work\enemy-combat`.
-To rerun the checks, copy only EnemyCombatVerificationTemporary.cs and
-EnemyCombatLiveCheckTemporary.cs into Assets/Editor, let Unity compile, then use
-Tools > Verify Enemy Combat or Tools > Observe Enemy In Main. Both tools enter
-Play Mode, perform checks, and stop; their test changes are not saved to Main.
+The death screen uses the main menu's dark gray background, white regular title,
+and gray 320 x 60 buttons. Retry restarts the scene; Give Up quits (stops Play in Editor).

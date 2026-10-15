@@ -23,12 +23,14 @@ public class PlayerParry : MonoBehaviour
     private float activeStartsAt = float.NegativeInfinity;
     private float activeEndsAt = float.NegativeInfinity;
     private float recoveryEndsAt = float.NegativeInfinity;
+    private float bufferedUntil = float.NegativeInfinity;
     private Transform feedback;
     private readonly SpriteRenderer[] borders = new SpriteRenderer[4];
     private static Sprite borderSprite;
     public float LastSuccessTime { get; private set; } = float.NegativeInfinity;
     public ParryPhase Phase => PhaseAt(Time.time);
     public bool IsBusy => Phase != ParryPhase.Idle;
+    public float RecoveryRemaining => Mathf.Max(0, recoveryEndsAt - Time.time);
     public ParryPhase PhaseAt(float now)
     {
         if (now >= recoveryEndsAt) return ParryPhase.Idle;
@@ -53,7 +55,13 @@ public class PlayerParry : MonoBehaviour
     private void OnDestroy() => controls.Dispose();
     private void Update()
     {
-        if (parryInput.WasPressedThisFrame()) TryBegin(Time.time);
+        if (parryInput.WasPressedThisFrame()) QueueParry();
+        Tick(Time.time);
+    }
+    public void QueueParry() => bufferedUntil = Time.time + Mathf.Max(0, attack.Settings.inputBufferSeconds);
+    public void Tick(float now)
+    {
+        if (now <= bufferedUntil && TryBegin(now)) bufferedUntil = float.NegativeInfinity;
     }
     public bool TryBegin(float now)
     {
@@ -75,6 +83,7 @@ public class PlayerParry : MonoBehaviour
         incoming.Owner.GetComponent<EnemyCombat>()?.Stun(now, stunSeconds);
         incoming.Owner.ContactDamage?.Suppress(health, now + stunSeconds);
         LastSuccessTime = now;
+        GetComponent<CombatFeedback>()?.Parry();
         activeEndsAt = now;
         recoveryEndsAt = now + recoveryFrames / CombatAttack.ReferenceFramesPerSecond;
         return true;
@@ -82,6 +91,7 @@ public class PlayerParry : MonoBehaviour
     public void Cancel()
     {
         activeStartsAt = activeEndsAt = recoveryEndsAt = float.NegativeInfinity;
+        bufferedUntil = float.NegativeInfinity;
         LastSuccessTime = float.NegativeInfinity;
         if (feedback != null) feedback.gameObject.SetActive(false);
     }
@@ -106,7 +116,7 @@ public class PlayerParry : MonoBehaviour
     private void LateUpdate()
     {
         ParryPhase phase = Phase;
-        bool visible = showParry && phase != ParryPhase.Idle;
+        bool visible = showParry && AscendJigoku.Debugging.DebugMenu.IsOpen && phase != ParryPhase.Idle;
         feedback.gameObject.SetActive(visible);
         if (!visible) return;
         Bounds bounds = bodyCollider != null ? bodyCollider.bounds : new Bounds(transform.position, Vector3.one);

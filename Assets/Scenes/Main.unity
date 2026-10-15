@@ -1313,14 +1313,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerCombat
   attackDamage: 1
-  attackActiveFrames: 4
-  attackCooldownFrames: 0
-  sideAttackSize: {x: 1.4, y: 1.5}
-  sideAttackOffset: {x: 0.9, y: 0}
-  upAttackSize: {x: 1.5, y: 1.3}
-  upAttackOffset: {x: 0, y: 1}
-  downAttackSize: {x: 5, y: 2}
-  downAttackOffset: {x: 0, y: -1.3}
   enemyLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -1336,6 +1328,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8ecec6f43c11084cb21fae1628adfac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatAttack
+  settings: {fileID: 11400000, guid: 5a8a2af188744461a110357d1e2321bb, type: 2}
   team: 0
   showAttack: 1
 --- !u!114 &1512326401

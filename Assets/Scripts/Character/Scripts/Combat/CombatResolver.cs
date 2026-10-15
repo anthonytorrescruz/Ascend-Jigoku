@@ -15,6 +15,7 @@ public class CombatResolver : MonoBehaviour
     }
     private readonly List<CombatAttack.Swing> swings = new List<CombatAttack.Swing>();
     private readonly List<Collider2D> hits = new List<Collider2D>();
+    private readonly List<RaycastHit2D> walls = new List<RaycastHit2D>();
     private readonly List<PendingDamage> pending = new List<PendingDamage>();
     private struct PendingDamage
     {
@@ -24,6 +25,7 @@ public class CombatResolver : MonoBehaviour
         public PlayerHealth Player;
         public int Amount;
         public float KnockbackDirection;
+        public Vector2 EnemyKnockback;
         public bool Apply;
         public bool IsContact;
     }
@@ -50,6 +52,7 @@ public class CombatResolver : MonoBehaviour
             {
                 var enemy = swings[j];
                 if (enemy.IsActive(now) && enemy.Owner.Team == CombatTeam.Enemy && player.Box.Overlaps(enemy.Box)
+                    && HasClearPath(player, enemy.Owner.transform.position)
                     && TryPogo(player, enemy, now)) break;
             }
         }
@@ -82,7 +85,7 @@ public class CombatResolver : MonoBehaviour
         }
         // Commit enemy damage before player damage, which may reload the scene on death.
         for (int i = 0; i < pending.Count; i++)
-            if (pending[i].Apply && pending[i].Enemy != null) pending[i].Enemy.TakeDamage(pending[i].Amount);
+            if (pending[i].Apply && pending[i].Enemy != null) pending[i].Enemy.TakeCombatDamage(pending[i].Amount, pending[i].EnemyKnockback);
         for (int i = 0; i < pending.Count; i++)
             if (pending[i].Apply && pending[i].Player != null)
                 pending[i].Player.TakeCombatDamage(pending[i].Amount, pending[i].KnockbackDirection);
@@ -94,6 +97,7 @@ public class CombatResolver : MonoBehaviour
     {
         if (hit == null || hit.transform.IsChildOf(swing.Owner.transform)
             || hit.GetComponentInParent<CombatAttackHitbox>() != null) return;
+        if (!HasClearPath(swing, hit.ClosestPoint(swing.Owner.transform.position), hit)) return;
         if (swing.Owner.Team == CombatTeam.Player)
         {
             EnemyHealth enemy = hit.GetComponentInParent<EnemyHealth>();
@@ -104,7 +108,8 @@ public class CombatResolver : MonoBehaviour
             }
             if (enemy != null && swing.Damage > 0 && (swing.DamageLayers.value & (1 << hit.gameObject.layer)) != 0
                 && swing.TargetsHit.Add(enemy))
-                pending.Add(new PendingDamage { Swing = swing, Enemy = enemy, Amount = swing.Damage });
+                pending.Add(new PendingDamage { Swing = swing, Enemy = enemy, Amount = swing.Damage,
+                    EnemyKnockback = enemy.transform.position - swing.Owner.transform.position });
         }
         else
         {
@@ -116,6 +121,17 @@ public class CombatResolver : MonoBehaviour
             pending.Add(new PendingDamage { Swing = swing, Player = player, Amount = swing.Damage,
                 KnockbackDirection = KnockbackDirection(swing.Owner.transform.position.x, player) });
         }
+    }
+    private bool HasClearPath(CombatAttack.Swing swing, Vector2 point, Collider2D target = null)
+    {
+        var filter = new ContactFilter2D { useTriggers = false };
+        var profile = swing.Owner.GetComponent<EnemyCombat>()?.Definition;
+        filter.SetLayerMask(profile != null ? profile.terrainLayers : swing.Owner.Settings.terrainLayers);
+        walls.Clear();
+        Physics2D.Linecast(swing.Owner.transform.position, point, filter, walls);
+        foreach (var wall in walls)
+            if (wall.collider != target && !wall.collider.transform.IsChildOf(swing.Owner.transform)) return false;
+        return true;
     }
     private static float KnockbackDirection(float sourceX, PlayerHealth player)
     {
@@ -130,6 +146,7 @@ public class CombatResolver : MonoBehaviour
             || player.Owner.PlayerController == null || player.Owner.PlayerController.IsGrounded) return false;
         player.PogoTriggered = true;
         player.Owner.PlayerController.PogoBounce();
+        player.Owner.Feedback?.Pogo();
         if (enemy != null)
         {
             enemy.Owner.Cancel(enemy);

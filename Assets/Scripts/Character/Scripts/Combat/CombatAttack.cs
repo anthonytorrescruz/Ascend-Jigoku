@@ -10,6 +10,24 @@ public class CombatAttack : MonoBehaviour
     public const float ReferenceFramesPerSecond = 60f;
     [SerializeField] private CombatTeam team;
     [SerializeField] private bool showAttack = true;
+    [SerializeField] private CombatSettings settings;
+    private static CombatSettings fallbackSettings;
+    private Collider2D bodyCollider;
+
+    public CombatSettings Settings
+    {
+        get
+        {
+            if (settings != null) return settings;
+            if (fallbackSettings == null)
+            {
+                fallbackSettings = ScriptableObject.CreateInstance<CombatSettings>();
+                fallbackSettings.hideFlags = HideFlags.HideAndDontSave;
+            }
+            return fallbackSettings;
+        }
+    }
+    public CombatFeedback Feedback { get; private set; }
 
     public CombatTeam Team => team;
     public float LastParryTime { get; private set; } = float.NegativeInfinity;
@@ -46,6 +64,9 @@ public class CombatAttack : MonoBehaviour
     {
         PlayerController = GetComponent<PlayerController>();
         ContactDamage = GetComponent<EnemyContactDamage>();
+        bodyCollider = GetComponent<Collider2D>();
+        Feedback = GetComponent<CombatFeedback>();
+        if (Feedback == null) Feedback = gameObject.AddComponent<CombatFeedback>();
         var hitbox = new GameObject("Attack Hitbox");
         hitbox.layer = gameObject.layer;
         hitboxTransform = hitbox.transform;
@@ -61,6 +82,7 @@ public class CombatAttack : MonoBehaviour
         hitboxRenderer.sprite = sharedAttackSprite;
         var bodyRenderer = GetComponent<SpriteRenderer>();
         hitboxRenderer.sortingOrder = bodyRenderer != null ? bodyRenderer.sortingOrder + 1 : 1;
+        if (bodyRenderer != null) hitboxRenderer.sortingLayerID = bodyRenderer.sortingLayerID;
         hitbox.SetActive(false);
     }
 
@@ -90,6 +112,22 @@ public class CombatAttack : MonoBehaviour
     }
 
     public Rect GetBox(Vector2 offset, Vector2 size) => new Rect((Vector2)transform.position + offset - size * 0.5f, size);
+    public Vector2 GetAttackOffset(CombatDirection direction, Vector2 size)
+    {
+        if (bodyCollider == null) bodyCollider = GetComponent<Collider2D>();
+        Bounds body = bodyCollider != null && bodyCollider.enabled
+            ? bodyCollider.bounds : new Bounds(transform.position, Vector3.one);
+        Vector2 offset = body.center - transform.position;
+        float gap = Mathf.Max(0, Settings.bodyClearance);
+        switch (direction)
+        {
+            case CombatDirection.Left: offset.x -= body.extents.x + size.x * 0.5f + gap; break;
+            case CombatDirection.Right: offset.x += body.extents.x + size.x * 0.5f + gap; break;
+            case CombatDirection.Up: offset.y += body.extents.y + size.y * 0.5f + gap; break;
+            case CombatDirection.Down: offset.y -= body.extents.y + size.y * 0.5f + gap; break;
+        }
+        return offset;
+    }
     public void ShowTelegraph(Vector2 offset, Vector2 size)
     {
         telegraphing = true;
@@ -110,12 +148,19 @@ public class CombatAttack : MonoBehaviour
         swing.Cancelled = true;
         UpdateDisplay(Time.time);
     }
+    public void CancelAll()
+    {
+        if (CurrentSwing != null) CurrentSwing.Cancelled = true;
+        CurrentSwing = null;
+        telegraphing = false;
+        LastParryTime = float.NegativeInfinity;
+        Feedback?.CancelWindup();
+        if (hitboxTransform != null) hitboxTransform.gameObject.SetActive(false);
+    }
     private void LateUpdate() => UpdateDisplay(Time.time);
     private void OnDisable()
     {
-        telegraphing = false;
-        if (CurrentSwing != null) CurrentSwing.Cancelled = true;
-        if (hitboxTransform != null) hitboxTransform.gameObject.SetActive(false);
+        CancelAll();
     }
     private void UpdateDisplay(float now)
     {
@@ -132,9 +177,9 @@ public class CombatAttack : MonoBehaviour
         hitboxTransform.localScale = new Vector3(box.width / Mathf.Max(0.001f, Mathf.Abs(scale.x)),
             box.height / Mathf.Max(0.001f, Mathf.Abs(scale.y)), 1f);
         hitboxCollider.enabled = active;
-        hitboxRenderer.enabled = showAttack;
+        hitboxRenderer.enabled = showAttack && AscendJigoku.Debugging.DebugMenu.IsOpen;
         hitboxRenderer.color = flash ? new Color(0, 1, 1, 0.65f)
             : telegraphing ? new Color(1, 0.75f, 0, 0.25f)
-            : team == CombatTeam.Enemy ? new Color(1, 0.2f, 0.1f, 0.5f) : new Color(0.3f, 0.8f, 1, 0.45f);
+            : team == CombatTeam.Enemy ? new Color(1, 0.2f, 0.1f, 0.5f) : new Color(0.2f, 0.45f, 1, 0.55f);
     }
 }

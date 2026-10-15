@@ -177,6 +177,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8ecec6f43c11084cb21fae1628adfac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatAttack
+  settings: {fileID: 11400000, guid: 5a8a2af188744461a110357d1e2321bb, type: 2}
   team: 1
   showAttack: 1
 --- !u!114 &3665810249675724327
@@ -201,14 +202,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 8
   aboveThreshold: 0.6
-  attackWindupFrames: 8
-  attackActiveFrames: 6
-  attackCooldownSeconds: 1
   attackDamage: 1
-  sideAttackSize: {x: 1, y: 1.25}
-  sideAttackOffset: {x: 0.9, y: 0}
-  upAttackSize: {x: 1.5, y: 1.7}
-  upAttackOffset: {x: 0, y: 1}
   playerLayers:
     serializedVersion: 2
     m_Bits: 4294967295

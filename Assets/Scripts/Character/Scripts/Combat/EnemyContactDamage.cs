@@ -20,9 +20,14 @@ public class EnemyContactDamage : MonoBehaviour
     }
     public bool TryContact(PlayerHealth player, float now)
     {
-        if (damageAmount <= 0 || now < nextDamageAt || IsSuppressed(player, now)) return false;
-        nextDamageAt = now + contactCooldownSeconds;
-        CombatResolver.Instance.QueueContact(this, player, damageAmount, now);
+        var health = GetComponent<EnemyHealth>();
+        var combat = GetComponent<EnemyCombat>();
+        var profile = combat != null ? combat.Definition : null;
+        int damage = profile != null ? profile.contactDamage : damageAmount;
+        if (!isActiveAndEnabled || player == null || player.CurrentHealth <= 0 || health == null || health.CurrentHealth <= 0
+            || (combat != null && combat.IsStunned) || damage <= 0 || now < nextDamageAt || IsSuppressed(player, now)) return false;
+        nextDamageAt = now + (profile != null ? profile.contactCooldown : contactCooldownSeconds);
+        CombatResolver.Instance.QueueContact(this, player, damage, now);
         return true;
     }
     public void Suppress(PlayerHealth player, float until) { protectedPlayer = player; suppressedUntil = until; }
