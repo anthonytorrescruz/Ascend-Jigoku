@@ -538,6 +538,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CameraFollow
   player: {fileID: 1512326393}
   smoothSpeed: 14
+  deadZone: {x: 0.15, y: 0.12}
+  safeRegion: {x: 0.36, y: 0.4}
+  maxDistance: 1.5
+  lookOffset: {x: 0, y: 0.35}
+  teleportDistance: 8
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -1288,18 +1293,19 @@ MonoBehaviour:
   moveSpeed: 14
   smoothTime: 0.1
   facingRight: 1
-  knockbackSpeed: 8
-  knockbackDuration: 0.15
-  isGrounded: 0
-  wasGrounded: 0
+  rb: {fileID: 1512326390}
   jumpForce: 14
   maxJumpCount: 2
-  groundCheck: {fileID: 102363898}
-  groundCheckRadius: 0.2
+  coyoteTime: 0.2
+  jumpBufferTime: 0.2
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
-  rb: {fileID: 1512326390}
+  knockbackSpeed: 8
+  knockbackDuration: 0.15
+  dashSpeed: 20
+  dashDuration: 0.2
+  dashCooldown: 1
 --- !u!114 &1512326399
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1328,9 +1334,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8ecec6f43c11084cb21fae1628adfac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatAttack
-  settings: {fileID: 11400000, guid: 5a8a2af188744461a110357d1e2321bb, type: 2}
   team: 0
   showAttack: 1
+  settings: {fileID: 11400000, guid: 5a8a2af188744461a110357d1e2321bb, type: 2}
 --- !u!114 &1512326401
 MonoBehaviour:
   m_ObjectHideFlags: 0
