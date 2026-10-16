@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class PlayerController : MonoBehaviour
@@ -13,6 +15,10 @@ public class PlayerController : MonoBehaviour
     [Header("Jump")]
     [SerializeField] private float jumpForce = 10;
     [SerializeField] private int maxJumpCount = 2;
+    [SerializeField] private float coyoteTime = 0.2f;
+    [SerializeField] private float jumpBufferTime = 0.2f;
+    private float coyoteTimeCounter;
+    private float jumpBufferCounter;
     [SerializeField] private LayerMask groundLayer;
     [Header("Damage Knockback")]
     [Min(0), SerializeField] private float knockbackSpeed = 8;
@@ -31,6 +37,16 @@ public class PlayerController : MonoBehaviour
     public int MaxJumps => maxJumpCount;
     public bool IsKnockedBack => Time.time < knockbackEndsAt;
     public bool IsGrounded => CheckGrounded();
+    [Header("Dash Functionality")]
+    [SerializeField] private float dashSpeed = 20f;
+    [SerializeField] private float dashDuration = 0.2f;
+    [SerializeField] private float dashCooldown = 1f;
+
+    private bool canDash = true;
+    private bool isDashing;
+    private bool hasDashedInAir;
+
+    
 
     private void Awake()
     {
@@ -42,10 +58,12 @@ public class PlayerController : MonoBehaviour
     {
         controls.Enable();
         controls.PlayerInput.Jump.performed += OnJump;
+        controls.PlayerInput.Dash.performed += OnDash;
     }
     private void OnDisable()
     {
         controls.PlayerInput.Jump.performed -= OnJump;
+        controls.PlayerInput.Dash.performed -= OnDash;
         controls.Disable();
     }
     private void OnDestroy() => controls.Dispose();
@@ -60,9 +78,55 @@ public class PlayerController : MonoBehaviour
             transform.localScale = scale;
         }
         bool grounded = CheckGrounded();
-        if (grounded && !wasGrounded) jumpCount = 0;
+
+        CalculateCoyoteAndJumpBufferTime(grounded);
+
+        if (grounded && !wasGrounded)
+        {
+            jumpCount = 0;
+            hasDashedInAir = false;
+        }
+
         wasGrounded = grounded;
+
+        HandleJump();
+        
     }
+
+    private void CalculateCoyoteAndJumpBufferTime(bool grounded)
+    {
+        if (grounded) coyoteTimeCounter = coyoteTime;
+        else coyoteTimeCounter -= Time.deltaTime;
+
+        if (jumpBufferCounter > 0) jumpBufferCounter -= Time.deltaTime;
+    }
+
+    private void HandleJump()
+    {
+        if(jumpBufferCounter <= 0) return;
+
+        //First Jump
+        if(coyoteTimeCounter > 0 && jumpCount == 0)
+        {
+            PerformJump();
+            return;
+        }
+        //Second Jump
+        if(jumpCount > 0 && jumpCount < maxJumpCount)
+        {
+            PerformJump();
+        }
+    }
+
+    private void PerformJump()
+    {
+        jumpCount++;
+        jumpBufferCounter = 0;
+        coyoteTimeCounter = 0;   
+        wasGrounded = false;
+        rb.linearVelocityY = jumpForce;
+    }
+
     private bool CheckGrounded()
     {
         if (rb == null || bodyShape == null || !bodyShape.enabled || !rb.simulated || rb.linearVelocityY > 0.1f) return false;
@@ -74,21 +138,62 @@ public class PlayerController : MonoBehaviour
             if (contact.normal.y > 0.65f && contact.point.y <= bodyShape.bounds.min.y + 0.08f) return true;
         return false;
     }
+    
     private void FixedUpdate()
     {
         if (IsKnockedBack)
         { rb.linearVelocityX = knockbackVelocity; velocityRef.x = 0; return; }
+
+        if(isDashing) return;
+
         var wanted = new Vector2(moveInput.x * moveSpeed, rb.linearVelocityY);
         rb.linearVelocity = Vector2.SmoothDamp(rb.linearVelocity, wanted, ref velocityRef, smoothTime);
     }
     private void OnJump(InputAction.CallbackContext context)
     {
+        /*
         if (context.ReadValue<float>() <= 0) return;
         if (CheckGrounded()) jumpCount = 0;
         if (jumpCount >= maxJumpCount) return;
         jumpCount++;
         wasGrounded = false;
         rb.linearVelocityY = jumpForce;
+        */
+        jumpBufferCounter = jumpBufferTime;
+    }
+
+    private void OnDash(InputAction.CallbackContext context)
+    {
+        if(canDash && !isDashing)
+        {
+            if(CheckGrounded() || !hasDashedInAir)
+            {
+               StartCoroutine(Dash());
+            }
+        }
+    }
+    IEnumerator Dash()
+    {
+        canDash = false;
+        isDashing = true;
+
+        float originalGravity = rb.gravityScale;
+        rb.gravityScale = 0f;
+
+        float dashDirection = facingRight ? 1f : -1f;
+        rb.linearVelocityX = dashDirection * dashSpeed;
+
+        if(!CheckGrounded())
+        {
+            hasDashedInAir = true;
+        }
+
+        yield return new WaitForSeconds(dashDuration);
+        rb.gravityScale = originalGravity;
+        isDashing = false;
+
+        yield return new WaitForSeconds(dashDuration);
+        canDash = true;
     }
     public void PogoBounce()
     {
