@@ -18,6 +18,7 @@ MonoBehaviour:
   moveSpeed: 1.1
   acceleration: 18
   gravityScale: 3
+  bodyMass: 250
   patrolRadius: 2
   stoppingDistance: 0.7
   aggroRadius: 7

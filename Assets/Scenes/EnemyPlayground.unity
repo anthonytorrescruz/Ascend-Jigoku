@@ -1279,7 +1279,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraFollow
   player: {fileID: 1823770289}
-  smoothSpeed: 0.25
+  smoothSpeed: 14
 --- !u!114 &1986038146
 MonoBehaviour:
   m_ObjectHideFlags: 0

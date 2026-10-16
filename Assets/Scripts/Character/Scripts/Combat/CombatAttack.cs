@@ -32,6 +32,12 @@ public class CombatAttack : MonoBehaviour
     public CombatTeam Team => team;
     public float LastParryTime { get; private set; } = float.NegativeInfinity;
     public Swing CurrentSwing { get; private set; }
+    public BoxCollider2D Hitbox => hitboxCollider;
+    public static bool IsHitbox(Collider2D shape)
+    {
+        var owner = shape != null ? shape.GetComponentInParent<CombatAttack>() : null;
+        return owner != null && shape == owner.hitboxCollider;
+    }
     public bool IsAttacking => CurrentSwing != null && CurrentSwing.IsActive(Time.time);
     public PlayerController PlayerController { get; private set; }
     public EnemyContactDamage ContactDamage { get; private set; }
@@ -74,7 +80,6 @@ public class CombatAttack : MonoBehaviour
         hitboxCollider = hitbox.AddComponent<BoxCollider2D>();
         hitboxCollider.isTrigger = true;
         hitboxCollider.enabled = false;
-        hitbox.AddComponent<CombatAttackHitbox>().Owner = this;
         if (team == CombatTeam.Enemy) hitbox.AddComponent<Pogoable>();
         hitboxRenderer = hitbox.AddComponent<SpriteRenderer>();
         if (sharedAttackSprite == null)

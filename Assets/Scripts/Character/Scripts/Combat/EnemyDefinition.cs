@@ -15,6 +15,8 @@ public sealed class EnemyDefinition : ScriptableObject
     [Min(0)] public float moveSpeed = 2;
     [Min(0.1f)] public float acceleration = 18;
     [Min(0.1f)] public float gravityScale = 3;
+    [Tooltip("Resistance to body pushing. Attack knockback is controlled separately below.")]
+    [Min(1)] public float bodyMass = 100;
     [Min(0)] public float patrolRadius = 2;
     [Min(0)] public float stoppingDistance = 0.7f;
     [Min(0.1f)] public float aggroRadius = 7;

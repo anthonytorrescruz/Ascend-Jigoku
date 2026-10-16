@@ -1,4 +1,4 @@
-// F1: overhead stats and hitboxes. Number keys run registered debug actions.
+// F1: world panel, overhead stats and hitboxes. Number keys run debug actions.
 // OnEnable: DebugMenu.Watch(this, "Player", "Health", () => health);
 // OnDisable: DebugMenu.RemoveAll(this);  Actions use DebugMenu.Action(...).
 using System;
@@ -78,6 +78,7 @@ namespace AscendJigoku.Debugging
             if (instance != null && instance != this) { Destroy(this); return; }
             instance = this;
             DontDestroyOnLoad(gameObject);
+            gameObject.AddComponent<WorldDebugOverlay>();
         }
 
         private static void Register(Entry entry)

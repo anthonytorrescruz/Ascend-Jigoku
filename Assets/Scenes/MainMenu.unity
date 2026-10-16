@@ -1491,7 +1491,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 69690e598f06a467c97f9001180e7c04, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AscendJigoku.UI.MainMenu
-  gameplayScene: Main
+  gameplayScene: ProceduralPillar
 --- !u!114 &1541871872
 MonoBehaviour:
   m_ObjectHideFlags: 0

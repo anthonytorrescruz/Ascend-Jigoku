@@ -24,6 +24,7 @@ namespace AscendJigoku.UI
                 return;
             }
             starting = true;
+            VerticalLevelGenerator.BeginNewRun();
             SceneManager.LoadScene(gameplayScene);
         }
 

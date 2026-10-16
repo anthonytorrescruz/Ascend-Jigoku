@@ -96,7 +96,7 @@ public class CombatResolver : MonoBehaviour
     private void ResolveHit(CombatAttack.Swing swing, Collider2D hit, float now)
     {
         if (hit == null || hit.transform.IsChildOf(swing.Owner.transform)
-            || hit.GetComponentInParent<CombatAttackHitbox>() != null) return;
+            || CombatAttack.IsHitbox(hit)) return;
         if (!HasClearPath(swing, hit.ClosestPoint(swing.Owner.transform.position), hit)) return;
         if (swing.Owner.Team == CombatTeam.Player)
         {

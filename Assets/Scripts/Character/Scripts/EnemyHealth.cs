@@ -30,6 +30,12 @@ public class EnemyHealth : MonoBehaviour
         HealthChanged?.Invoke(currentHealth, MaxHealth);
     }
 
+    public void RestoreHealth(int amount)
+    {
+        currentHealth = Mathf.Clamp(amount, 1, MaxHealth);
+        HealthChanged?.Invoke(currentHealth, MaxHealth);
+    }
+
     public void TakeDamage(int amount)
     {
         if (amount <= 0 || currentHealth <= 0)

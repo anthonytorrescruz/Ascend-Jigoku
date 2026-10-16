@@ -6,7 +6,7 @@ public class DamageZone : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.GetComponentInParent<CombatAttackHitbox>() != null) return;
+        if (CombatAttack.IsHitbox(other)) return;
         PlayerHealth playerHealth =
             other.GetComponentInParent<PlayerHealth>();
 

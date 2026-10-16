@@ -30,6 +30,7 @@ public sealed class EnemyMotor : MonoBehaviour
     {
         if (Definition == null) return;
         body.gravityScale = Definition.movement == EnemyMovement.Flying ? 0 : Definition.gravityScale;
+        body.mass = Mathf.Max(1, Definition.bodyMass);
     }
     public void Move(Vector2 velocity) => desiredVelocity = velocity;
     public void Stop() => desiredVelocity = Vector2.zero;

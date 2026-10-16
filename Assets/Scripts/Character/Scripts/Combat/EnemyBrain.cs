@@ -28,6 +28,7 @@ public sealed class EnemyBrain : MonoBehaviour
         health = GetComponent<EnemyHealth>();
         home = transform.position;
     }
+    public void SetHome(Vector2 position) => home = position;
     private void FixedUpdate() => Tick(Time.time);
     public void Tick(float now)
     {

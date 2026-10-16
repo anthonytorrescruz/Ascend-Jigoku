@@ -14,7 +14,7 @@ public class EnemyContactDamage : MonoBehaviour
     private void OnCollisionStay2D(Collision2D collision) => CheckContact(collision.collider);
     private void CheckContact(Collider2D other)
     {
-        if (other.GetComponentInParent<CombatAttackHitbox>() != null) return;
+        if (CombatAttack.IsHitbox(other)) return;
         var player = other.GetComponentInParent<PlayerHealth>();
         if (player != null) TryContact(player, Time.time);
     }

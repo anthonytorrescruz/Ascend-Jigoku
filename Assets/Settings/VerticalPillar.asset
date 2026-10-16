@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c067c26a38c4087b20147a3e5bbb465, type: 3}
+  m_Name: VerticalPillar
+  m_EditorClassIdentifier: Assembly-CSharp::VerticalGenerationSettings
+  platformPrefab: {fileID: 264525109381533425, guid: b6b58df433c5748c0962a147fb4a324c, type: 3}
+  pillarHeight: 1200
+  pillarWidth: 76
+  platformWidth: {x: 5, y: 11}
+  platformThickness: 1.8
+  zigzagWidth: 14
+  horizontalVariation: 0.7
+  heightVariation: 0.1
+  jumpSafety: 0.9
+  wideLandingEvery: 15
+  chunkHeight: 40
+  platformsPerChunk: 10
+  loadAbove: 64
+  keepBelow: 28
+  unloadBuffer: 12
+  platformsPerFrame: 3
+  fallDistance: 12
+  fallDamage: 1
+  fallBounceHeight: 14
+  randomizeSeed: 1
+  seed: 12345
+  heightMarkers:
+  - id: Checkpoint 200
+    height: 200
+    checkpoint: 1
+    prefab: {fileID: 0}
+  - id: Checkpoint 400
+    height: 400
+    checkpoint: 1
+    prefab: {fileID: 0}
+  - id: Checkpoint 800
+    height: 800
+    checkpoint: 1
+    prefab: {fileID: 0}
+  enemyChance: 0.45
+  firstEnemyRow: 5
+  enemyRowSpacing: 3
+  clearLandingHalfWidth: 1.25
+  enemies:
+  - prefab: {fileID: 3312387624880291732, guid: eaca19b93c40f423382d29b2a7e79354, type: 3}
+    weight: 5
+    firstRow: 5
+  - prefab: {fileID: 8830242863704324528, guid: 0f25b00b64b2e40f9ae1549c37fb9788, type: 3}
+    weight: 3
+    firstRow: 12
+  - prefab: {fileID: 6804256437230772012, guid: 86f1e56c545c54c87a693e2317d211e7, type: 3}
+    weight: 2
+    firstRow: 18
+  - prefab: {fileID: 8281849485158205743, guid: 1ffd16f802e294b8788fe285e3fda1ef, type: 3}
+    weight: 1
+    firstRow: 30
