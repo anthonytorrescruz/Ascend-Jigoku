@@ -11,13 +11,11 @@ TagManager:
   - TransparentFX
   - Ignore Raycast
   - Ground
-  - Not_Spawned
-  - 
   - Water
   - UI
-  - 
-  - 
-  - 
+  - Water
+  - UI
+  - Wall
   - 
   - 
   - 

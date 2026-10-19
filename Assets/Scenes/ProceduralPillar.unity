@@ -308,6 +308,9 @@ MonoBehaviour:
   settings: {fileID: 11400000, guid: 15a6e2be0c04e4a0db601c0d1b7563f2, type: 2}
   player: {fileID: 1309939419}
   currentSeed: 0
+  onHeightReached:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!4 &286985172
 Transform:
   m_ObjectHideFlags: 0
@@ -322,6 +325,37 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1278011212
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1278011213}
+  m_Layer: 0
+  m_Name: WallCheck
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1278011213
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1278011212}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1309939420}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1309939418
 GameObject:
@@ -367,13 +401,26 @@ MonoBehaviour:
   rb: {fileID: 1309939421}
   jumpForce: 14
   maxJumpCount: 2
-  groundCheck: {fileID: 1902319204}
-  groundCheckRadius: 0.2
+  coyoteTime: 0.2
+  jumpBufferTime: 0.2
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
   knockbackSpeed: 8
   knockbackDuration: 0.15
+  dashSpeed: 20
+  dashDuration: 0.2
+  dashCooldown: 1
+  wallCheck: {fileID: 1278011213}
+  wallCheckDistance: 0.6
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 264
+  wallJumpForceX: 8
+  wallJumpForceY: 12
+  wallJumpTime: 0.2
+  wallSlideSpeed: 2
+  isTouchingWall: 0
 --- !u!4 &1309939420
 Transform:
   m_ObjectHideFlags: 0
@@ -388,6 +435,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1902319204}
+  - {fileID: 1278011213}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!50 &1309939421
@@ -537,7 +585,7 @@ BoxCollider2D:
   m_Enabled: 1
   serializedVersion: 3
   m_Density: 1
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 6200000, guid: 72ba0b55b1ff3ae4a8b7066fbc884ae8, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0

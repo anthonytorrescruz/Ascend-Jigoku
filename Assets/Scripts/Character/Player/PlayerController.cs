@@ -46,16 +46,35 @@ public class PlayerController : MonoBehaviour
     private bool isDashing;
     private bool hasDashedInAir;
 
+    [Header("Wall Jump Functionality")]
+    [SerializeField] private Transform wallCheck;
+    [SerializeField] private float wallCheckDistance = 0.6f;
+    [SerializeField] private LayerMask wallLayer;
+
+    [SerializeField] private float wallJumpForceX = 8f;
+    [SerializeField] private float wallJumpForceY = 12f;
+    [SerializeField] private float wallJumpTime = 0.2f;
+    [SerializeField] private float wallSlideSpeed = 2f;
+
+    [SerializeField] private bool isTouchingWall;
+    private bool isWallSliding;
+    private bool isWallJumping;
+    private float facingDirection = 1;
+
+    private Animator animator;
+
     
 
     private void Awake()
     {
+        animator = GetComponentInChildren<Animator>();
         if (rb == null) rb = GetComponent<Rigidbody2D>();
         bodyShape = GetComponent<Collider2D>();
         controls = new PlayerActions();
     }
     private void OnEnable()
     {
+        if(controls == null) controls = new PlayerActions();
         controls.Enable();
         controls.PlayerInput.Jump.performed += OnJump;
         controls.PlayerInput.Dash.performed += OnDash;
@@ -70,6 +89,7 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         moveInput = controls.PlayerInput.Move.ReadValue<Vector2>();
+        /*
         if (!IsKnockedBack && Mathf.Abs(moveInput.x) > 0.1f && (moveInput.x > 0) != facingRight)
         {
             facingRight = moveInput.x > 0;
@@ -77,7 +97,10 @@ public class PlayerController : MonoBehaviour
             scale.x *= -1;
             transform.localScale = scale;
         }
+        */
+        HandleFlip();
         bool grounded = CheckGrounded();
+        
 
         CalculateCoyoteAndJumpBufferTime(grounded);
 
@@ -89,7 +112,29 @@ public class PlayerController : MonoBehaviour
 
         wasGrounded = grounded;
 
+        CheckWall();
         HandleJump();
+        HandleWallSlide();
+        
+    }
+    private void CheckWall()
+    {
+        isTouchingWall = Physics2D.Raycast(wallCheck.position, Vector2.right * facingDirection, wallCheckDistance, wallLayer);
+    }
+
+    private void HandleWallSlide()
+    {
+        bool pressingIntoWall = moveInput.x * facingDirection > 0.1f;
+
+        if(isTouchingWall && !IsGrounded && rb.linearVelocityY < 0 && pressingIntoWall)
+        {
+            isWallSliding = true;
+            rb.linearVelocityY = Mathf.Max(rb.linearVelocityY, -wallSlideSpeed);
+        }
+        else
+        {
+            isWallSliding = false;
+        }
         
     }
 
@@ -101,9 +146,40 @@ public class PlayerController : MonoBehaviour
         if (jumpBufferCounter > 0) jumpBufferCounter -= Time.deltaTime;
     }
 
+    private void HandleFlip()
+    {
+        if (IsKnockedBack || isWallJumping) return;
+
+         if (Mathf.Abs(moveInput.x) > 0.1f)
+        {
+            bool moveRight = moveInput.x > 0;
+
+            if (moveRight != facingRight)
+            {
+                Flip();
+            }
+        }
+    }
+
+    private void Flip()
+    {
+        facingRight = !facingRight;
+        facingDirection = facingRight ? 1 : -1;
+
+        Vector3 scale = transform.localScale;
+        scale.x *= -1;
+        transform.localScale = scale;
+    }
+
     private void HandleJump()
     {
         if(jumpBufferCounter <= 0) return;
+
+        if(isTouchingWall && !IsGrounded)
+        {
+            PerformWallJump();
+            return;
+        }
 
         //First Jump
         if(coyoteTimeCounter > 0 && jumpCount == 0)
@@ -116,6 +192,44 @@ public class PlayerController : MonoBehaviour
         {
             PerformJump();
         }
+    }
+
+    private void PerformWallJump()
+    {
+        /*
+        isWallJumping = true;
+
+        animator.SetTrigger("Jump");
+
+        jumpBufferCounter = 0;
+        coyoteTimeCounter = 0;
+
+        float jumpDir = facingDirection; 
+
+        rb.linearVelocity = new Vector2(jumpDir * wallJumpForceX, wallJumpForceY);
+        */
+         jumpBufferCounter = 0;
+        coyoteTimeCounter = 0;
+        jumpCount = 1;
+        wasGrounded = false;
+        isWallSliding = false;
+
+        float jumpDir = -facingDirection;
+        if ((jumpDir > 0) != facingRight) Flip();
+
+        velocityRef = Vector2.zero;
+        rb.linearVelocity = new Vector2(jumpDir * wallJumpForceX, wallJumpForceY);
+
+        if (animator != null) animator.SetTrigger("Jump");
+
+        StartCoroutine(WallJumpLock());
+    }
+
+    private IEnumerator WallJumpLock()
+    {
+        isWallJumping = true;
+        yield return new WaitForSeconds(wallJumpTime);
+        isWallJumping = false;
     }
 
     private void PerformJump()
@@ -145,8 +259,16 @@ public class PlayerController : MonoBehaviour
         { rb.linearVelocityX = knockbackVelocity; velocityRef.x = 0; return; }
 
         if(isDashing) return;
+        if(isWallJumping) return;
 
-        var wanted = new Vector2(moveInput.x * moveSpeed, rb.linearVelocityY);
+        float inputX = moveInput.x;
+
+        if(isTouchingWall && !IsGrounded && inputX * facingDirection > 0)
+        {
+            inputX = 0;
+        }
+
+        var wanted = new Vector2(inputX * moveSpeed, rb.linearVelocityY);
         rb.linearVelocity = Vector2.SmoothDamp(rb.linearVelocity, wanted, ref velocityRef, smoothTime);
     }
     private void OnJump(InputAction.CallbackContext context)
@@ -192,7 +314,7 @@ public class PlayerController : MonoBehaviour
         rb.gravityScale = originalGravity;
         isDashing = false;
 
-        yield return new WaitForSeconds(dashDuration);
+        yield return new WaitForSeconds(dashCooldown);
         canDash = true;
     }
     public void PogoBounce()
@@ -229,5 +351,13 @@ public class PlayerController : MonoBehaviour
         moveInput = velocityRef = Vector2.zero;
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0;
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (wallCheck == null) return;
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawRay(wallCheck.position, Vector2.right * (facingRight ? 1f : -1f) * wallCheckDistance);
     }
 }
