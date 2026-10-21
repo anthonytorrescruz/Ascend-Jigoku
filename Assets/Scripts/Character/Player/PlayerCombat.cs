@@ -16,6 +16,8 @@ public class PlayerCombat : MonoBehaviour
     private float bufferedUntil = float.NegativeInfinity;
     private CombatDirection bufferedDirection;
     public CombatAttack Attack => attack;
+    public int AttackDamage => Mathf.Max(0, attackDamage);
+    public LayerMask EnemyLayers => enemyLayers;
     public float RecoveryRemaining => Mathf.Max(0, nextAttackAt - Time.time);
     public bool HasBufferedAttack => Time.time <= bufferedUntil;
 
@@ -41,6 +43,7 @@ public class PlayerCombat : MonoBehaviour
     }
     public void QueueAttack(CombatDirection direction)
     {
+        GetComponent<PlayerSpell>()?.Cancel();
         bufferedDirection = direction;
         bufferedUntil = Time.time + Mathf.Max(0, attack.Settings.inputBufferSeconds);
     }

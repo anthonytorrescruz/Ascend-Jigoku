@@ -7,6 +7,16 @@
             "id": "d67ef5ae-486a-47bd-a5d0-87985a540e10",
             "actions": [
                 {
+                    "name": "CastOrHeal",
+                    "type": "Button",
+                    "id": "f4bc2197-e61a-44fa-a389-70d63230c310",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false,
+                    "priority": 0
+                },
+                {
                     "name": "Move",
                     "type": "Value",
                     "id": "5f6c5d45-53f7-4424-9396-60e85488d4fd",
@@ -58,6 +68,17 @@
                 }
             ],
             "bindings": [
+                {
+                    "name": "",
+                    "id": "8b542d0a-e435-4f3f-baf3-0f981fc59a27",
+                    "path": "<Keyboard>/semicolon",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "CastOrHeal",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
                 {
                     "name": "",
                     "id": "2a8c719e-0d5b-45b9-afbe-e80b7072c2a6",

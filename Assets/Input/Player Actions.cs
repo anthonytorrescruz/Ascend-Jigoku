@@ -93,6 +93,16 @@ public partial class @PlayerActions: IInputActionCollection2, IDisposable
             ""id"": ""d67ef5ae-486a-47bd-a5d0-87985a540e10"",
             ""actions"": [
                 {
+                    ""name"": ""CastOrHeal"",
+                    ""type"": ""Button"",
+                    ""id"": ""f4bc2197-e61a-44fa-a389-70d63230c310"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false,
+                    ""priority"": 0
+                },
+                {
                     ""name"": ""Move"",
                     ""type"": ""Value"",
                     ""id"": ""5f6c5d45-53f7-4424-9396-60e85488d4fd"",
@@ -144,6 +154,17 @@ public partial class @PlayerActions: IInputActionCollection2, IDisposable
                 }
             ],
             ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""8b542d0a-e435-4f3f-baf3-0f981fc59a27"",
+                    ""path"": ""<Keyboard>/semicolon"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""CastOrHeal"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
                 {
                     ""name"": """",
                     ""id"": ""2a8c719e-0d5b-45b9-afbe-e80b7072c2a6"",
@@ -305,6 +326,7 @@ public partial class @PlayerActions: IInputActionCollection2, IDisposable
 }");
         // PlayerInput
         m_PlayerInput = asset.FindActionMap("PlayerInput", throwIfNotFound: true);
+        m_PlayerInput_CastOrHeal = m_PlayerInput.FindAction("CastOrHeal", throwIfNotFound: true);
         m_PlayerInput_Move = m_PlayerInput.FindAction("Move", throwIfNotFound: true);
         m_PlayerInput_Jump = m_PlayerInput.FindAction("Jump", throwIfNotFound: true);
         m_PlayerInput_Attack = m_PlayerInput.FindAction("Attack", throwIfNotFound: true);
@@ -390,6 +412,7 @@ public partial class @PlayerActions: IInputActionCollection2, IDisposable
     // PlayerInput
     private readonly InputActionMap m_PlayerInput;
     private List<IPlayerInputActions> m_PlayerInputActionsCallbackInterfaces = new List<IPlayerInputActions>();
+    private readonly InputAction m_PlayerInput_CastOrHeal;
     private readonly InputAction m_PlayerInput_Move;
     private readonly InputAction m_PlayerInput_Jump;
     private readonly InputAction m_PlayerInput_Attack;
@@ -406,6 +429,10 @@ public partial class @PlayerActions: IInputActionCollection2, IDisposable
         /// Construct a new instance of the input action map wrapper class.
         /// </summary>
         public PlayerInputActions(@PlayerActions wrapper) { m_Wrapper = wrapper; }
+        /// <summary>
+        /// Provides access to the underlying input action "PlayerInput/CastOrHeal".
+        /// </summary>
+        public InputAction @CastOrHeal => m_Wrapper.m_PlayerInput_CastOrHeal;
         /// <summary>
         /// Provides access to the underlying input action "PlayerInput/Move".
         /// </summary>
@@ -452,6 +479,9 @@ public partial class @PlayerActions: IInputActionCollection2, IDisposable
         {
             if (instance == null || m_Wrapper.m_PlayerInputActionsCallbackInterfaces.Contains(instance)) return;
             m_Wrapper.m_PlayerInputActionsCallbackInterfaces.Add(instance);
+            @CastOrHeal.started += instance.OnCastOrHeal;
+            @CastOrHeal.performed += instance.OnCastOrHeal;
+            @CastOrHeal.canceled += instance.OnCastOrHeal;
             @Move.started += instance.OnMove;
             @Move.performed += instance.OnMove;
             @Move.canceled += instance.OnMove;
@@ -478,6 +508,9 @@ public partial class @PlayerActions: IInputActionCollection2, IDisposable
         /// <seealso cref="PlayerInputActions" />
         private void UnregisterCallbacks(IPlayerInputActions instance)
         {
+            @CastOrHeal.started -= instance.OnCastOrHeal;
+            @CastOrHeal.performed -= instance.OnCastOrHeal;
+            @CastOrHeal.canceled -= instance.OnCastOrHeal;
             @Move.started -= instance.OnMove;
             @Move.performed -= instance.OnMove;
             @Move.canceled -= instance.OnMove;
@@ -533,6 +566,13 @@ public partial class @PlayerActions: IInputActionCollection2, IDisposable
     /// <seealso cref="PlayerInputActions.RemoveCallbacks(IPlayerInputActions)" />
     public interface IPlayerInputActions
     {
+        /// <summary>
+        /// Method invoked when associated input action "CastOrHeal" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnCastOrHeal(InputAction.CallbackContext context);
         /// <summary>
         /// Method invoked when associated input action "Move" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>

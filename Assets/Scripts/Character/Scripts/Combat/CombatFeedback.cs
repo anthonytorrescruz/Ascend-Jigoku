@@ -89,6 +89,11 @@ public sealed class CombatFeedback : MonoBehaviour
             }
             clip = fallback;
         }
+        PlayClip(clip, volume);
+    }
+    public static void PlayClip(AudioClip clip, float clipVolume)
+    {
+        if (clip == null || clipVolume <= 0) return;
         if (audioSource == null)
         {
             var host = new GameObject("Combat Audio");
@@ -97,7 +102,7 @@ public sealed class CombatFeedback : MonoBehaviour
             audioSource.playOnAwake = false;
             audioSource.spatialBlend = 0;
         }
-        audioSource.PlayOneShot(clip, volume);
+        audioSource.PlayOneShot(clip, Mathf.Clamp01(clipVolume));
     }
     private void OnDisable() => ResetFeedback();
 }

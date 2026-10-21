@@ -58,7 +58,11 @@ public class PlayerParry : MonoBehaviour
         if (parryInput.WasPressedThisFrame()) QueueParry();
         Tick(Time.time);
     }
-    public void QueueParry() => bufferedUntil = Time.time + Mathf.Max(0, attack.Settings.inputBufferSeconds);
+    public void QueueParry()
+    {
+        GetComponent<PlayerSpell>()?.Cancel();
+        bufferedUntil = Time.time + Mathf.Max(0, attack.Settings.inputBufferSeconds);
+    }
     public void Tick(float now)
     {
         if (now <= bufferedUntil && TryBegin(now)) bufferedUntil = float.NegativeInfinity;

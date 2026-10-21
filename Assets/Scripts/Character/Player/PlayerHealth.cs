@@ -8,6 +8,9 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private int maxHealth = 3;
     [Tooltip("Protection after damage so body contact and an attack do not charge twice.")]
     [Min(0), SerializeField] private float damageCooldownSeconds = 0.35f;
+    [Header("Player Damage Audio")]
+    [SerializeField] private AudioClip damageSound;
+    [Range(0, 1), SerializeField] private float damageSoundVolume = 0.65f;
     [Header("Death Screen")]
     [Tooltip("Show YOU DIED with Retry and Give Up. Disable to restart immediately everywhere.")]
     [SerializeField] private bool showDeathScreen = true;
@@ -24,6 +27,15 @@ public class PlayerHealth : MonoBehaviour
     public bool ShouldShowDeathScreen => showDeathScreen && !(Application.isEditor && skipDeathScreenInEditor);
 
     public event Action<int, int> HealthChanged;
+    public event Action<int> Damaged;
+
+    public bool Heal(int amount)
+    {
+        if (amount <= 0 || currentHealth <= 0 || currentHealth >= maxHealth) return false;
+        currentHealth += Mathf.Min(amount, maxHealth - currentHealth);
+        HealthChanged?.Invoke(currentHealth, maxHealth);
+        return true;
+    }
 
     private void Awake()
     {
@@ -46,7 +58,11 @@ public class PlayerHealth : MonoBehaviour
 
         invulnerableUntil = Time.time + damageCooldownSeconds;
 
+        int previousHealth = currentHealth;
         currentHealth = Mathf.Max(0, currentHealth - amount);
+        // The shared source survives scene reloads, including a lethal hit's voice cue.
+        CombatFeedback.PlayClip(damageSound, damageSoundVolume);
+        Damaged?.Invoke(previousHealth - currentHealth);
         GetComponent<CombatFeedback>()?.Hit();
 
         Debug.Log("Player health: " + currentHealth + "/" + maxHealth);
@@ -71,6 +87,7 @@ public class PlayerHealth : MonoBehaviour
 
     private void Die()
     {
+        GetComponent<PlayerSpell>()?.Cancel(true);
         GetComponent<PlayerCombat>()?.Cancel();
         GetComponent<PlayerParry>()?.Cancel();
         GetComponent<CombatAttack>()?.CancelAll();

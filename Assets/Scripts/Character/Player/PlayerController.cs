@@ -30,6 +30,7 @@ public class PlayerController : MonoBehaviour
     private float knockbackEndsAt = float.NegativeInfinity;
     private float knockbackVelocity;
     private Collider2D bodyShape;
+    private PlayerSpell playerSpell;
     private readonly List<ContactPoint2D> groundContacts = new List<ContactPoint2D>();
     public bool IsFacingRight => facingRight;
     public float MoveSpeed => moveSpeed;
@@ -70,6 +71,7 @@ public class PlayerController : MonoBehaviour
         animator = GetComponentInChildren<Animator>();
         if (rb == null) rb = GetComponent<Rigidbody2D>();
         bodyShape = GetComponent<Collider2D>();
+        playerSpell = GetComponent<PlayerSpell>();
         controls = new PlayerActions();
     }
     private void OnEnable()
@@ -119,6 +121,7 @@ public class PlayerController : MonoBehaviour
     }
     private void CheckWall()
     {
+        if (wallCheck == null) { isTouchingWall = false; return; }
         isTouchingWall = Physics2D.Raycast(wallCheck.position, Vector2.right * facingDirection, wallCheckDistance, wallLayer);
     }
 
@@ -262,6 +265,7 @@ public class PlayerController : MonoBehaviour
         if(isWallJumping) return;
 
         float inputX = moveInput.x;
+        if (playerSpell != null && playerSpell.IsFocusing) inputX *= playerSpell.FocusMovementMultiplier;
 
         if(isTouchingWall && !IsGrounded && inputX * facingDirection > 0)
         {
@@ -273,6 +277,7 @@ public class PlayerController : MonoBehaviour
     }
     private void OnJump(InputAction.CallbackContext context)
     {
+        playerSpell?.Cancel();
         /*
         if (context.ReadValue<float>() <= 0) return;
         if (CheckGrounded()) jumpCount = 0;
@@ -286,6 +291,7 @@ public class PlayerController : MonoBehaviour
 
     private void OnDash(InputAction.CallbackContext context)
     {
+        playerSpell?.Cancel();
         if(canDash && !isDashing)
         {
             if(CheckGrounded() || !hasDashedInAir)
@@ -345,6 +351,7 @@ public class PlayerController : MonoBehaviour
     }
     public void ResetMovement()
     {
+        playerSpell?.Cancel(true);
         CancelKnockback();
         jumpCount = 0;
         wasGrounded = false;

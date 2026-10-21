@@ -23,6 +23,7 @@ public class PlayerRespawn : MonoBehaviour
 
     public void Respawn()
     {
+        GetComponent<PlayerSpell>()?.Cancel(true);
         BeforeRespawn?.Invoke(respawnPosition);
         GetComponent<PlayerCombat>()?.Cancel();
         GetComponent<CombatAttack>()?.CancelAll();
