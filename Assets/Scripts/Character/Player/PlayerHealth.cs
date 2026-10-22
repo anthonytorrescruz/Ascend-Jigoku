@@ -12,7 +12,7 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private AudioClip damageSound;
     [Range(0, 1), SerializeField] private float damageSoundVolume = 0.65f;
     [Header("Death Screen")]
-    [Tooltip("Show YOU DIED with Retry and Give Up. Disable to restart immediately everywhere.")]
+    [Tooltip("Load the Death scene with Retry and Give Up. Disable to restart immediately everywhere.")]
     [SerializeField] private bool showDeathScreen = true;
     [Tooltip("Restart immediately during Unity playtesting. Turn this off to preview the death screen. Builds still show it.")]
     [SerializeField] private bool skipDeathScreenInEditor = true;
