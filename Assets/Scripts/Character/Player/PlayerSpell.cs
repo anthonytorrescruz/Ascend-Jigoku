@@ -27,6 +27,7 @@ public sealed class PlayerSpell : MonoBehaviour
     [SerializeField] private Color healColor = new Color(0.3f, 1, 0.4f, 0.65f);
     private PlayerActions controls;
     private InputAction castInput;
+    private InputDevice holdDevice;
     private PlayerController controller;
     private PlayerHealth health;
     private PlayerCombat combat;
@@ -66,8 +67,21 @@ public sealed class PlayerSpell : MonoBehaviour
         if (renderer != null) { focusVisual.sortingLayerID = renderer.sortingLayerID; focusVisual.sortingOrder = renderer.sortingOrder + 3; }
         focusVisual.gameObject.SetActive(false);
     }
-    private void OnEnable() { controls.Enable(); health.Damaged += OnDamaged; }
-    private void OnDisable() { controls.Disable(); health.Damaged -= OnDamaged; Cancel(true); }
+    private void OnEnable()
+    {
+        controls.Enable(); health.Damaged += OnDamaged;
+        InputSystem.onDeviceChange += OnDeviceChange;
+    }
+    private void OnDisable()
+    {
+        InputSystem.onDeviceChange -= OnDeviceChange;
+        controls.Disable(); health.Damaged -= OnDamaged; Cancel(true);
+    }
+    private void OnDeviceChange(InputDevice device, InputDeviceChange change)
+    {
+        if (holding && device == holdDevice && (change == InputDeviceChange.Disconnected
+            || change == InputDeviceChange.Removed || change == InputDeviceChange.Disabled)) Cancel();
+    }
     private void OnDestroy()
     {
         controls.Dispose();
@@ -90,7 +104,7 @@ public sealed class PlayerSpell : MonoBehaviour
         if (!isActiveAndEnabled || holding || Time.timeScale <= 0 || health.CurrentHealth <= 0
             || !controller.isActiveAndEnabled || controller.IsKnockedBack || now < nextUseAt
             || combat.Attack.IsAttacking || combat.RecoveryRemaining > 0 || (parry != null && parry.IsBusy)) return false;
-        holding = true; pressedAt = now;
+        holding = true; pressedAt = now; holdDevice = castInput.activeControl?.device;
         return true;
     }
     public void Tick(float now)
@@ -99,7 +113,7 @@ public sealed class PlayerSpell : MonoBehaviour
         { Cancel(); return; }
         if (!holding || now - pressedAt < Mathf.Max(0.1f, healHoldSeconds)) return;
         // One result per press. Remaining held never repeatedly heals or emits a shot.
-        holding = false; nextUseAt = now + Mathf.Max(0, cooldownSeconds);
+        holding = false; holdDevice = null; nextUseAt = now + Mathf.Max(0, cooldownSeconds);
         if (health.Heal(Mathf.Max(1, healAmount)))
         {
             HealsCompleted++;
@@ -111,7 +125,7 @@ public sealed class PlayerSpell : MonoBehaviour
         if (!holding) return false;
         Tick(now); // Releasing exactly at the threshold is still a heal.
         if (!holding) return false;
-        holding = false;
+        holding = false; holdDevice = null;
         if (health.CurrentHealth <= 0 || !controller.isActiveAndEnabled) return false;
         nextUseAt = now + Mathf.Max(0, cooldownSeconds);
         if (pool.Count == 0 && projectiles.Count >= Mathf.Max(1, maxProjectiles)) return false;
@@ -137,7 +151,7 @@ public sealed class PlayerSpell : MonoBehaviour
     private void Recycle(PlayerProjectile shot) => pool.Push(shot);
     public void Cancel(bool clearProjectiles = false)
     {
-        holding = false;
+        holding = false; holdDevice = null;
         if (focusVisual != null) focusVisual.gameObject.SetActive(false);
         if (clearProjectiles)
         {

@@ -1,8 +1,11 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
 
 public enum CombatTeam { Player, Enemy }
 public enum CombatDirection { Left, Right, Up, Down }
+
 
 [DisallowMultipleComponent]
 public class CombatAttack : MonoBehaviour
@@ -106,6 +109,7 @@ public class CombatAttack : MonoBehaviour
         CombatResolver.Instance.Register(CurrentSwing);
         UpdateDisplay(now);
         return CurrentSwing;
+        
     }
 
     public void SetTeam(CombatTeam value)
