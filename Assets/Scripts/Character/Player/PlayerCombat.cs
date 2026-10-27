@@ -20,6 +20,8 @@ public class PlayerCombat : MonoBehaviour
     public LayerMask EnemyLayers => enemyLayers;
     public float RecoveryRemaining => Mathf.Max(0, nextAttackAt - Time.time);
     public bool HasBufferedAttack => Time.time <= bufferedUntil;
+    private AudioSource attackSound;
+    public AudioClip attackClip;
 
     private void Awake()
     {
@@ -28,6 +30,7 @@ public class PlayerCombat : MonoBehaviour
         attack = GetComponent<CombatAttack>();
         parry = GetComponent<PlayerParry>();
         controls = new PlayerActions();
+        attackSound = GetComponent<AudioSource>();
     }
     private void OnEnable() => controls.Enable();
     private void OnDisable()
@@ -38,7 +41,11 @@ public class PlayerCombat : MonoBehaviour
     private void OnDestroy() => controls.Dispose();
     private void Update()
     {
-        if (controls.PlayerInput.Attack.WasPressedThisFrame()) QueueAttack(ReadDirection());
+        if (controls.PlayerInput.Attack.WasPressedThisFrame()){
+            QueueAttack(ReadDirection());
+            attackSound.PlayOneShot(attackClip);
+            return;
+        }
         Tick(Time.time);
     }
     public void QueueAttack(CombatDirection direction)
