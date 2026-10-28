@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f2586ccfbbb1b714f97536f2c117e927, type: 3}
+  m_Name: FireWormBossAttacks
+  m_EditorClassIdentifier: Assembly-CSharp::FireWormBossSettings
+  edgePadding: 0.25
+  automaticAttacks: 1
+  fireballRange: 13
+  slamRange: 3
+  attackCooldownSeconds: 1
+  recoverySeconds: 0.4
+  fireballWindupFrames: 33
+  fireballDamage: 1
+  fireballSpeed: 9
+  fireballLifetime: 3
+  fireballSize: {x: 0.8, y: 0.55}
+  maximumFireballs: 6
+  fireballParryStunSeconds: 0.6
+  slamWindupFrames: 42
+  slamActiveFrames: 8
+  slamDamage: 1
+  slamSize: {x: 3.8, y: 1.4}
+  slamClearance: 0.05
+  fireballColor: {r: 1, g: 0.3, b: 0.05, a: 1}
+  warningColor: {r: 1, g: 0.7, b: 0.1, a: 0.3}
+  slamColor: {r: 1, g: 0.2, b: 0.05, a: 0.75}
