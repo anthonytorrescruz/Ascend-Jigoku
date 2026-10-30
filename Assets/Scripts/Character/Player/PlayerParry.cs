@@ -31,8 +31,8 @@ public class PlayerParry : MonoBehaviour
     public ParryPhase Phase => PhaseAt(Time.time);
     public bool IsBusy => Phase != ParryPhase.Idle;
     public float RecoveryRemaining => Mathf.Max(0, recoveryEndsAt - Time.time);
-    private AudioSource perrySound;
-    public AudioClip perryClip;
+    public AudioClip parryClip;
+    [Range(0, 1), SerializeField] private float parryVolume = 0.12f;
     public ParryPhase PhaseAt(float now)
     {
         if (now >= recoveryEndsAt) return ParryPhase.Idle;
@@ -46,7 +46,6 @@ public class PlayerParry : MonoBehaviour
         bodyCollider = GetComponent<Collider2D>();
         controls = new PlayerActions();
         parryInput = controls.asset.FindAction("PlayerInput/Parry", true);
-        perrySound = GetComponent<AudioSource>();
         CreateFeedback();
     }
     private void OnEnable() => controls.Enable();
@@ -61,7 +60,7 @@ public class PlayerParry : MonoBehaviour
         if (parryInput.WasPressedThisFrame())
         {
            QueueParry();
-           perrySound.PlayOneShot(perryClip); 
+           CombatFeedback.PlayClip(parryClip, parryVolume);
         } 
         Tick(Time.time);
     }

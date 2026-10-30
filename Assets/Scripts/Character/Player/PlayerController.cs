@@ -63,6 +63,10 @@ public class PlayerController : MonoBehaviour
     private float facingDirection = 1;
 
     private Animator animator;
+    [Range(0, 1), SerializeField] private float jumpVolume = 0.12f;
+    [Range(0, 1), SerializeField] private float dashVolume = 0.12f;
+    public AudioClip jumpClip;
+    public AudioClip dashClip;
 
     
 
@@ -70,7 +74,10 @@ public class PlayerController : MonoBehaviour
     {
         animator = GetComponentInChildren<Animator>();
         if (rb == null) rb = GetComponent<Rigidbody2D>();
-        bodyShape = GetComponent<Collider2D>();
+        foreach (var c in GetComponents<Collider2D>())
+            {
+                if (c.enabled && !c.isTrigger) { bodyShape = c; break; }
+            }
         playerSpell = GetComponent<PlayerSpell>();
         controls = new PlayerActions();
     }
@@ -100,6 +107,10 @@ public class PlayerController : MonoBehaviour
             transform.localScale = scale;
         }
         */
+        bool moving = Mathf.Abs(moveInput.x) > 0.1f && Mathf.Abs(rb.linearVelocityX) > 0.1f;
+        animator.SetFloat("Speed", moving ? 1f : 0f);
+
+        
         HandleFlip();
         bool grounded = CheckGrounded();
         
@@ -162,6 +173,9 @@ public class PlayerController : MonoBehaviour
                 Flip();
             }
         }
+
+        if (animator != null)
+            animator.SetFloat("Speed", Mathf.Abs(rb.linearVelocityX));
     }
 
     private void Flip()
@@ -278,6 +292,7 @@ public class PlayerController : MonoBehaviour
     private void OnJump(InputAction.CallbackContext context)
     {
         playerSpell?.Cancel();
+
         /*
         if (context.ReadValue<float>() <= 0) return;
         if (CheckGrounded()) jumpCount = 0;
@@ -287,6 +302,7 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocityY = jumpForce;
         */
         jumpBufferCounter = jumpBufferTime;
+        CombatFeedback.PlayClip(jumpClip, jumpVolume);
     }
 
     private void OnDash(InputAction.CallbackContext context)
@@ -299,6 +315,7 @@ public class PlayerController : MonoBehaviour
                StartCoroutine(Dash());
             }
         }
+        CombatFeedback.PlayClip(dashClip, dashVolume);
     }
     IEnumerator Dash()
     {

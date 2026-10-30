@@ -11,6 +11,8 @@ public class PlayerHealth : MonoBehaviour
     [Header("Player Damage Audio")]
     [SerializeField] private AudioClip damageSound;
     [Range(0, 1), SerializeField] private float damageSoundVolume = 0.65f;
+    [SerializeField] private AudioClip deathSound;
+    [Range(0, 1), SerializeField] private float deathSoundVolume = 0.65f;
     [Header("Death Screen")]
     [Tooltip("Load the Death scene with Retry and Give Up. Disable to restart immediately everywhere.")]
     [SerializeField] private bool showDeathScreen = true;
@@ -61,7 +63,6 @@ public class PlayerHealth : MonoBehaviour
         int previousHealth = currentHealth;
         currentHealth = Mathf.Max(0, currentHealth - amount);
         // The shared source survives scene reloads, including a lethal hit's voice cue.
-        CombatFeedback.PlayClip(damageSound, damageSoundVolume);
         Damaged?.Invoke(previousHealth - currentHealth);
         GetComponent<CombatFeedback>()?.Hit();
 
@@ -73,6 +74,10 @@ public class PlayerHealth : MonoBehaviour
         if (currentHealth <= 0)
         {
             Die();
+        }
+        if (currentHealth >= 1 )
+        {
+            CombatFeedback.PlayClip(damageSound, damageSoundVolume);
         }
         return true;
     }
@@ -93,6 +98,7 @@ public class PlayerHealth : MonoBehaviour
         GetComponent<CombatAttack>()?.CancelAll();
         if (ShouldShowDeathScreen)
         {
+            CombatFeedback.PlayClip(deathSound, deathSoundVolume);
             if (playerController != null) playerController.enabled = false;
             var combat = GetComponent<PlayerCombat>();
             if (combat != null) combat.enabled = false;

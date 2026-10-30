@@ -367,7 +367,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1309939420}
   - component: {fileID: 1309939429}
-  - component: {fileID: 1309939428}
   - component: {fileID: 1309939421}
   - component: {fileID: 1309939427}
   - component: {fileID: 1309939426}
@@ -378,6 +377,8 @@ GameObject:
   - component: {fileID: 1309939422}
   - component: {fileID: 1309939430}
   - component: {fileID: 1309939431}
+  - component: {fileID: 1309939432}
+  - component: {fileID: 1309939433}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -423,6 +424,10 @@ MonoBehaviour:
   wallJumpTime: 0.2
   wallSlideSpeed: 2
   isTouchingWall: 0
+  jumpVolume: 0.27
+  dashVolume: 0.27
+  jumpClip: {fileID: 0}
+  dashClip: {fileID: 0}
 --- !u!4 &1309939420
 Transform:
   m_ObjectHideFlags: 0
@@ -432,7 +437,7 @@ Transform:
   m_GameObject: {fileID: 1309939418}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: 0}
+  m_LocalPosition: {x: -0.344, y: 1.992, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -484,7 +489,8 @@ MonoBehaviour:
   recoveryFrames: 16
   enemyStunFrames: 30
   showParry: 1
-  perryClip: {fileID: 8300000, guid: d60080ddfa85ade469b481ddd66f02af, type: 3}
+  parryClip: {fileID: 0}
+  parryVolume: 0.43
 --- !u!114 &1309939423
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -517,6 +523,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   attackClip: {fileID: 8300000, guid: 7fcefb0927cc79f42b3ecbd83ea59175, type: 3}
+  attackVolume: 0.12
 --- !u!114 &1309939425
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -533,6 +540,8 @@ MonoBehaviour:
   damageCooldownSeconds: 0.35
   damageSound: {fileID: 8300000, guid: 29062b8f1b5899741b625d0a0824f4c2, type: 3}
   damageSoundVolume: 1
+  deathSound: {fileID: 8300000, guid: 336aabbd14c41fd4fbe1efca38b27e7a, type: 3}
+  deathSoundVolume: 1
   showDeathScreen: 1
   skipDeathScreenInEditor: 0
 --- !u!114 &1309939426
@@ -581,52 +590,6 @@ MonoBehaviour:
   m_DefaultActionMap: PlayerInput
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
---- !u!61 &1309939428
-BoxCollider2D:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1309939418}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Density: 1
-  m_Material: {fileID: 6200000, guid: 72ba0b55b1ff3ae4a8b7066fbc884ae8, type: 2}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ForceSendLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ForceReceiveLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ContactCaptureLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_CallbackLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_IsTrigger: 0
-  m_UsedByEffector: 0
-  m_CompositeOperation: 0
-  m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0.007499814}
-  m_SpriteTilingProperty:
-    border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 1, y: 1}
-    newSize: {x: 1, y: 1}
-    adaptiveTilingThreshold: 0.5
-    drawMode: 0
-    adaptiveTiling: 0
-  m_AutoTiling: 0
-  m_Size: {x: 1, y: 0.9850004}
-  m_EdgeRadius: 0
 --- !u!212 &1309939429
 SpriteRenderer:
   serializedVersion: 3
@@ -676,8 +639,8 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 7482667652216324306, guid: 105b7d4807b6ab649b1e362fa562105b, type: 3}
-  m_Color: {r: 0, g: 0.052518964, b: 1, a: 1}
+  m_Sprite: {fileID: 815424164945274260, guid: 7a7ddd17b9d38d8488a3301a9076f2c0, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -725,13 +688,13 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 5fe5902d30e0c3b49b50607d78d2eb8e, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.5
+  m_Volume: 0.08
   m_Pitch: 1
-  Loop: 0
+  Loop: 1
   Mute: 0
   Spatialize: 0
   SpatializePostEffects: 0
-  Priority: 212
+  Priority: 128
   DopplerLevel: 1
   MinDistance: 1
   MaxDistance: 500
@@ -809,6 +772,83 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!95 &1309939432
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1309939418}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: ca1415fd6fa38c64cabc6aab4e2b5cb2, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
+--- !u!60 &1309939433
+PolygonCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1309939418}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 6200000, guid: 72ba0b55b1ff3ae4a8b7066fbc884ae8, type: 2}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0.156}
+    oldSize: {x: 3, y: 3}
+    newSize: {x: 1, y: 1}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Points:
+    m_Paths:
+    - - {x: 0.25, y: 1.0320001}
+      - {x: 0.1875, y: 1.0632501}
+      - {x: -0.28125, y: 1.0632501}
+      - {x: -0.375, y: 0.81325006}
+      - {x: -0.375, y: 0.094500065}
+      - {x: -0.28125, y: 0.032000065}
+      - {x: -0.1875, y: 0.00075006485}
+      - {x: 0.25, y: 0.00075006485}
+  m_UseDelaunayMesh: 1
 --- !u!1 &1902319203
 GameObject:
   m_ObjectHideFlags: 0
