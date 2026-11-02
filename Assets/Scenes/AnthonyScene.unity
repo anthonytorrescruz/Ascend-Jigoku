@@ -279,8 +279,9 @@ GameObject:
   - component: {fileID: 702779491}
   - component: {fileID: 702779490}
   - component: {fileID: 702779489}
+  - component: {fileID: 702779492}
   m_Layer: 0
-  m_Name: Checkpoint Merchant
+  m_Name: Memento Mori Skeleton Shopkeeper
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -298,7 +299,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 480d291f2af1df64186030785c81e7b5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AscendJigoku.Gameplay.Shopkeeper
-  displayName: Checkpoint Merchant
+  displayName: Memento Mori
   catalog: {fileID: 11400000, guid: 4d60f554a50b35249baf6e7085a01420, type: 2}
   interactionRadius: 2.5
 --- !u!212 &702779490
@@ -348,13 +349,13 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 2
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: 87885266a49aade4ea2991c8782883cb, type: 3}
-  m_Color: {r: 0.75, g: 0.6, b: 0.85, a: 1}
+  m_Sprite: {fileID: -1286766486, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
-  m_DrawMode: 1
+  m_DrawMode: 0
   m_Size: {x: 0.9, y: 1.6}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
@@ -370,12 +371,42 @@ Transform:
   m_GameObject: {fileID: 702779488}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1, y: 0.8, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -1, y: 0.02, z: 0}
+  m_LocalScale: {x: 0.6666666, y: 0.6666666, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &702779492
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 702779488}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 252f051509f261a4ba1c1d8d87ea147d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AscendJigoku.Gameplay.ShopkeeperAnimation
+  frames:
+  - {fileID: -1286766486, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: -491816965, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: 393156114, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: -417540522, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: 924934232, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: 1913122365, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: 729916431, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: 1356604777, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: -2075725477, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: 313662616, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: -8339704001486466992, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: 2039205587598660520, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: 4677235570456555824, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: -97785373187741904, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: -1793747822737625034, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  - {fileID: -3724224730154922417, guid: 455ccb4ce466fed4e96ade486b28a2e4, type: 3}
+  framesPerSecond: 12.5
 --- !u!1 &843993338
 GameObject:
   m_ObjectHideFlags: 0

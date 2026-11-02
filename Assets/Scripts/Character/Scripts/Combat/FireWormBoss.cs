@@ -25,6 +25,7 @@ public sealed class FireWormBoss : MonoBehaviour
     private readonly List<Collider2D> turnObstacles = new List<Collider2D>();
     private float tailOffsetX;
     private SpriteRenderer headVisual, slamVisual;
+    private FireWormPresentation presentation;
     private Transform projectileRoot;
     private readonly List<BossFireball> projectiles = new List<BossFireball>();
     private readonly Stack<BossFireball> pool = new Stack<BossFireball>();
@@ -64,6 +65,7 @@ public sealed class FireWormBoss : MonoBehaviour
         combat = GetComponent<EnemyCombat>(); motor = GetComponent<EnemyMotor>();
         health = GetComponent<EnemyHealth>(); attack = GetComponent<CombatAttack>(); body = GetComponent<Rigidbody2D>();
         headVisual = GetComponent<SpriteRenderer>();
+        presentation = GetComponent<FireWormPresentation>();
         headShape = GetComponent<Collider2D>();
         if (tailVisual != null)
         {
@@ -327,7 +329,8 @@ public sealed class FireWormBoss : MonoBehaviour
     }
     private void LateUpdate()
     {
-        bool visible = State == FireWormState.SlamWindup || State == FireWormState.SlamActive;
+        bool visible = State == FireWormState.SlamWindup || (State == FireWormState.SlamActive
+            && (presentation == null || presentation.presentation == null));
         slamVisual.gameObject.SetActive(visible);
         if (visible)
         {

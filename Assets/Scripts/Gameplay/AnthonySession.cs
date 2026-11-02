@@ -76,7 +76,7 @@ namespace AscendJigoku.Gameplay
         public void ShowTitle()
         {
             PauseWorld(ScreenMode.Title);
-            ShowMenu("ANTHONY'S PLAYGROUND", "Visit the merchant on the blue checkpoint to try upgrades.\nE / Y opens the shop. Test coins and upgrades reset with the scene.\n\nCross the gap to fight the 45 HP Fire Worm.\nThree phases: aimed fireballs, fan volleys and slam shockwaves.",
+            ShowMenu("ANTHONY'S PLAYGROUND", "Visit the merchant on the blue checkpoint to try upgrades.\nE / Y opens the shop. Test coins and upgrades reset with the scene.\n\nCross the gap to fight the Fire Worm.\nThree phases: aimed fireballs, fan volleys and slam shockwaves.",
                 new[] { "START", "QUIT" }, new Action[] { StartPlaying, AscendJigoku.UI.MainMenu.QuitApplication });
         }
         public void StartPlaying()

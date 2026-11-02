@@ -84,6 +84,14 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
         { Debug.LogError("Generator needs settings, platform prefab and player.", this); return false; }
         body = player.GetComponent<Rigidbody2D>(); playerShape = player.GetComponent<Collider2D>();
         health = player.GetComponent<PlayerHealth>(); respawn = player.GetComponent<PlayerRespawn>();
+        if (settings.checkpointShopPrefab != null)
+        {
+            var wallet = player.GetComponent<AscendJigoku.Gameplay.CurrencyWallet>();
+            if (wallet == null) wallet = player.gameObject.AddComponent<AscendJigoku.Gameplay.PrototypeWallet>();
+            var shop = player.GetComponent<AscendJigoku.Gameplay.ShopMenu>();
+            if (shop == null) shop = player.gameObject.AddComponent<AscendJigoku.Gameplay.ShopMenu>();
+            shop.wallet = wallet;
+        }
         combat = player.GetComponent<PlayerCombat>(); parry = player.GetComponent<PlayerParry>();
         if (body == null || playerShape == null || health == null || respawn == null || body.gravityScale <= 0 || Physics2D.gravity.y >= 0)
         { Debug.LogError("Generator needs player health, respawn, collider and downward gravity.", this); return false; }
@@ -236,6 +244,13 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
         if (landing.MarkerIndex >= 0 && settings.heightMarkers[landing.MarkerIndex].prefab != null)
             Instantiate(settings.heightMarkers[landing.MarkerIndex].prefab,
                 transform.position + (Vector3)landing.Center, Quaternion.identity, chunk.Root.transform);
+        if (landing.MarkerIndex >= 0 && settings.heightMarkers[landing.MarkerIndex].checkpoint && settings.checkpointShopPrefab != null)
+        {
+            float offset = Mathf.Min(settings.checkpointShopOffset, Mathf.Max(0, landing.Width * .5f - 1.5f));
+            var merchant = Instantiate(settings.checkpointShopPrefab,
+                transform.position + (Vector3)landing.Center + new Vector3(offset, .02f, 0), Quaternion.identity, chunk.Root.transform);
+            merchant.name = "Memento Mori - " + settings.heightMarkers[landing.MarkerIndex].id;
+        }
         chunk.Built++;
         Physics2D.SyncTransforms();
         SpawnEnemy(landing);

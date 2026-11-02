@@ -36,3 +36,6 @@ MonoBehaviour:
     maxPurchases: 1
     amount: 1
   purchaseSound: {fileID: 8300000, guid: 0e037242f63c11041a0fadccbb7e98b4, type: 3}
+  openSound: {fileID: 8300000, guid: 24d93f3d3a5dec84784891be25b3bb5b, type: 3}
+  openSoundVolume: 0.4
+  openSoundPitch: 0.85

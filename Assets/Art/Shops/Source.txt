@@ -1,0 +1,2 @@
+Memento Mori Skeleton.png and Source/MementoMoriSkeleton.ase were supplied by the user from GandalfHardcore Hell Asset Pack 32x32 / The Damned Enemies and NPCs.
+16 frames, 128 x 96 cells, 4 columns x 4 rows, row-major from top left. ASE frame duration: 80 ms each (12.5 FPS). Original source art unchanged.

@@ -26,5 +26,8 @@ namespace AscendJigoku.Gameplay
             new ShopOffer { kind = UpgradeKind.ExtraJump, title = "Air Step", description = "+1 air jump: three jumps total, including the ground jump.", basePrice = 250, maxPurchases = 1 }
         };
         public AudioClip purchaseSound;
+        public AudioClip openSound;
+        [Range(0, 1)] public float openSoundVolume = 0.4f;
+        [Range(0.5f, 1.5f)] public float openSoundPitch = 0.85f;
     }
 }

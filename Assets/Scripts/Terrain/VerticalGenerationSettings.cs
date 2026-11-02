@@ -35,6 +35,9 @@ public sealed class VerticalGenerationSettings : ScriptableObject
     public HeightMarker[] heightMarkers = Array.Empty<HeightMarker>();
     [Header("Required Boss Before Checkpoint (optional)")]
     public BossEncounterSettings bossEncounter;
+    [Header("Checkpoint Shops (optional)")]
+    public AscendJigoku.Gameplay.Shopkeeper checkpointShopPrefab;
+    [Min(0)] public float checkpointShopOffset = 2;
     [Header("Enemies")]
     [Range(0, 1)] public float enemyChance = 0.45f;
     [Min(1)] public int firstEnemyRow = 5;

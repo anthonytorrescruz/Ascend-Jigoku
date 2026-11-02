@@ -60,6 +60,7 @@ public sealed class BossFightGate : MonoBehaviour
         if (Started || Defeated) return;
         Started = true; leftWall.SetActive(true); rightWall.SetActive(true);
         health.DamageEnabled = true; Boss.SetEncounterActive(true);
+        Boss.GetComponent<BossEncounterMusic>()?.Begin();
     }
     private void OnHealth(int current, int maximum)
     {

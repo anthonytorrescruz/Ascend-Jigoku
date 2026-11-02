@@ -47,6 +47,8 @@ MonoBehaviour:
     checkpoint: 1
     prefab: {fileID: 0}
   bossEncounter: {fileID: 11400000, guid: ae725496f21f72044b1b899f2fb6a5d6, type: 2}
+  checkpointShopPrefab: {fileID: 4703443110002337927, guid: be4845375bfeba746884df7f8be4fe77, type: 3}
+  checkpointShopOffset: 2
   enemyChance: 0.45
   firstEnemyRow: 5
   enemyRowSpacing: 3

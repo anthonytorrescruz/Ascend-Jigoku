@@ -47,7 +47,7 @@ public static class BossShopAuthoringTools
             boss.GetComponent<BoxCollider2D>().size = new Vector2(1.2f, 3.4f);
             var tail = boss.transform.Find("Tail"); tail.localPosition = new Vector3(1.45f, -1.175f, 0);
             tail.GetComponent<BoxCollider2D>().size = new Vector2(4, 1.05f);
-            var presentation = boss.GetComponent<FireWormPresentation>() ?? boss.AddComponent<FireWormPresentation>(); presentation.presentation = art;
+            var presentation = boss.GetComponent<FireWormPresentation>(); if (presentation == null) presentation = boss.AddComponent<FireWormPresentation>(); presentation.presentation = art;
             var visualObject = new GameObject("Fire Worm Animated Sprite"); visualObject.transform.SetParent(boss.transform, false);
             visualObject.transform.localPosition = new Vector3(1.175f, -1.69f, 0);
             var visual = visualObject.AddComponent<SpriteRenderer>(); visual.sprite = art.idle[0]; visual.flipX = true;
@@ -64,6 +64,7 @@ public static class BossShopAuthoringTools
         pillar.bossEncounter = encounter; EditorUtility.SetDirty(pillar);
         var shop = Asset<ShopCatalog>(Folder + "/ShopCatalog.asset"); shop.purchaseSound = Clip("shop-purchase"); EditorUtility.SetDirty(shop);
         AssetDatabase.SaveAssets();
+        BossShopMediaTools.Configure();
     }
     static T Asset<T>(string path) where T : ScriptableObject
     {

@@ -22,6 +22,7 @@ namespace AscendJigoku.Gameplay
         private Button leaveButton;
         private float oldTimeScale;
         private int lastClosedFrame = -1;
+        private AudioSource shopVoice;
         public bool IsOpen => current != null;
         public bool ConsumesBackInput => IsOpen || lastClosedFrame == Time.frameCount;
         public Shopkeeper Nearest => nearest;
@@ -30,6 +31,7 @@ namespace AscendJigoku.Gameplay
             controlLock = GetComponent<PlayerControlLock>(); upgrades = GetComponent<PlayerUpgrades>();
             interact = new InputAction("TalkShop", InputActionType.Button, "<Keyboard>/e"); interact.AddBinding("<Gamepad>/buttonNorth");
             close = new InputAction("CloseShop", InputActionType.Button, "<Keyboard>/escape"); close.AddBinding("<Gamepad>/buttonEast");
+            shopVoice = gameObject.AddComponent<AudioSource>(); shopVoice.playOnAwake = false; shopVoice.spatialBlend = 0;
         }
         private void Start()
         {
@@ -68,12 +70,18 @@ namespace AscendJigoku.Gameplay
                 || ((Vector2)(shop.transform.position - transform.position)).sqrMagnitude > shop.interactionRadius * shop.interactionRadius) return false;
             current = shop; oldTimeScale = Time.timeScale; controlLock.Lock(); Time.timeScale = 0;
             title.text = shop.displayName; greeting.text = shop.catalog.greeting; message.text = ""; panel.SetActive(true); prompt.text = "";
+            if (shop.catalog.openSound != null)
+            {
+                shopVoice.Stop(); shopVoice.clip = shop.catalog.openSound;
+                shopVoice.volume = shop.catalog.openSoundVolume; shopVoice.pitch = shop.catalog.openSoundPitch; shopVoice.Play();
+            }
             Refresh(); EventSystem.current.SetSelectedGameObject(buttons[0].gameObject); return true;
         }
         public void Close()
         {
             if (!IsOpen) return;
             lastClosedFrame = Time.frameCount;
+            if (shopVoice != null) shopVoice.Stop();
             current = null; if (panel != null) panel.SetActive(false);
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
             Time.timeScale = oldTimeScale > 0 ? oldTimeScale : 1; controlLock.Unlock();
@@ -96,7 +104,7 @@ namespace AscendJigoku.Gameplay
                 buttons[i].GetComponentInChildren<Text>().text = $"{offer.title}   {(maxed ? "MAX" : offer.Price(upgrades.Count(offer.kind)).ToString() + " coins")}\n{offer.description}";
                 // Keep disabled purchases selectable so controller users can read the reason.
             }
-            stats.text = $"Health: {GetComponent<PlayerHealth>().CurrentHealth}/{GetComponent<PlayerHealth>().MaxHealth}    Damage: {GetComponent<PlayerCombat>().AttackDamage}    Jumps: {GetComponent<PlayerController>().MaxJumps}\nPurchases and test coins reset when this test scene reloads.";
+            stats.text = $"Health: {GetComponent<PlayerHealth>().CurrentHealth}/{GetComponent<PlayerHealth>().MaxHealth}    Damage: {GetComponent<PlayerCombat>().AttackDamage}    Jumps: {GetComponent<PlayerController>().MaxJumps}\nPurchases and test coins reset when the scene reloads.";
         }
         private void CreateUI()
         {
