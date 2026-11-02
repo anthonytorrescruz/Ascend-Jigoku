@@ -17,6 +17,7 @@ public class PlayerCombat : MonoBehaviour
     private CombatDirection bufferedDirection;
     public CombatAttack Attack => attack;
     public int AttackDamage => Mathf.Max(0, attackDamage);
+    public void IncreaseAttackDamage(int amount) => attackDamage = Mathf.Clamp(attackDamage + Mathf.Max(0, amount), 0, 99);
     public LayerMask EnemyLayers => enemyLayers;
     public float RecoveryRemaining => Mathf.Max(0, nextAttackAt - Time.time);
     public bool HasBufferedAttack => Time.time <= bufferedUntil;
@@ -42,7 +43,6 @@ public class PlayerCombat : MonoBehaviour
     {
         if (controls.PlayerInput.Attack.WasPressedThisFrame()){
             QueueAttack(ReadDirection());
-            CombatFeedback.PlayClip(attackClip, attackVolume);
             return;
         }
         Tick(Time.time);
@@ -64,11 +64,19 @@ public class PlayerCombat : MonoBehaviour
         if (!isActiveAndEnabled || (health != null && health.CurrentHealth <= 0)
             || now < nextAttackAt || (attack.CurrentSwing != null && attack.CurrentSwing.IsActive(now))
             || parry.PhaseAt(now) != ParryPhase.Idle) return false;
+
         if (direction == CombatDirection.Down && playerController.IsGrounded) return false;
         GetAttackGeometry(direction, out Vector2 offset, out Vector2 size);
+
         var swing = attack.BeginAttack(direction, offset, size, attackDamage,
             attack.Settings.playerActiveFrames, enemyLayers, now);
+
         if (swing == null) return false;
+
+        //if (direction == CombatDirection.Left || direction == CombatDirection.Right)
+        if (direction != CombatDirection.Up)
+            playerController.PlayAttackAnimation();
+        CombatFeedback.PlayClip(attackClip, attackVolume);
         nextAttackAt = swing.EndsAt + Mathf.Max(0, attack.Settings.playerRecoveryFrames) / CombatAttack.ReferenceFramesPerSecond;
         return true;
     }
@@ -92,6 +100,8 @@ public class PlayerCombat : MonoBehaviour
         size = new Vector2(Mathf.Max(0.01f, size.x), Mathf.Max(0.01f, size.y));
         offset = source.GetAttackOffset(direction, size);
     }
+
+    
     private void OnDrawGizmosSelected()
     {
         if (Application.isPlaying && !AscendJigoku.Debugging.DebugMenu.IsOpen) return;

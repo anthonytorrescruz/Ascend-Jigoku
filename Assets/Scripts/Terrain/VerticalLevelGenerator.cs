@@ -10,7 +10,7 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
     [SerializeField] private PlayerController player;
     [SerializeField] private int currentSeed;
     public UnityEvent<string> onHeightReached = new UnityEvent<string>();
-    private sealed class Run { public VerticalGenerationSettings Settings; public string Scene; public int Seed, Checkpoint; }
+    private sealed class Run { public VerticalGenerationSettings Settings; public string Scene; public int Seed, Checkpoint; public bool BossDefeated; }
     private static Run run;
     private sealed class Chunk { public GameObject Root; public int NextRow, EndRow, Built; }
     private sealed class EnemyRecord { public int Row, Health; public EnemyHealth Actor; }
@@ -33,6 +33,12 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
     private float nextRefresh, fallPeak, footOffset, nextFallDamageAt;
     private int lastSafeRow;
     private Vector3 safePosition;
+    private int bossRow = -1, bossCheckpointRow = -1;
+    private BossFightGate bossGate;
+    public BossFightGate BossGate => bossGate;
+    public int BossRow => bossRow;
+    public bool BossDefeated => run != null && run.BossDefeated;
+    public bool BossRouteLocked => bossRow >= 0 && !BossDefeated;
     public int CurrentSeed => currentSeed;
     public int LoadedChunkCount => chunks.Count;
     public int ActiveEnemyCount => activeEnemies.Count;
@@ -54,7 +60,18 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
         built = chunk.Built; total = chunk.EndRow - index * metrics.RowsPerChunk;
         return true;
     }
-    public VerticalLayout.Landing GetLanding(int row) => VerticalLayout.GetLanding(settings, currentSeed, row, metrics);
+    public VerticalLayout.Landing GetLanding(int row)
+    {
+        var landing = VerticalLayout.GetLanding(settings, currentSeed, row, metrics);
+        if (row == bossRow)
+        {
+            landing.Center.x = 0; landing.Width = settings.pillarWidth; landing.Thickness = 1.2f;
+            landing.Shape = VerticalLayout.RockShape.Shelf; landing.EnemyIndex = -1; landing.MarkerIndex = -1;
+            landing.Color = new Color(0.35f, 0.35f, 0.39f);
+        }
+        else if (bossRow >= 0 && Mathf.Abs(row - bossRow) <= 2) landing.EnemyIndex = -1;
+        return landing;
+    }
     public static void BeginNewRun() => run = null;
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetRun() => BeginNewRun();
@@ -74,6 +91,14 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
         if (run == null || run.Settings != settings || run.Scene != gameObject.scene.path || (!settings.randomizeSeed && run.Seed != settings.seed))
             run = new Run { Settings = settings, Scene = gameObject.scene.path, Seed = settings.randomizeSeed ? System.Guid.NewGuid().GetHashCode() : settings.seed };
         currentSeed = run.Seed;
+        bossRow = bossCheckpointRow = -1; bossGate = null;
+        var encounter = settings.bossEncounter;
+        if (encounter != null && encounter.bossPrefab != null && encounter.checkpointMarkerIndex >= 0
+            && settings.heightMarkers != null && encounter.checkpointMarkerIndex < settings.heightMarkers.Length)
+        {
+            bossCheckpointRow = VerticalLayout.MarkerRow(settings.heightMarkers[encounter.checkpointMarkerIndex], metrics);
+            bossRow = Mathf.Max(2, bossCheckpointRow - Mathf.Max(3, encounter.rowsBeforeCheckpoint));
+        }
         if (generatedRoot != null) { generatedRoot.gameObject.SetActive(false); Destroy(generatedRoot.gameObject); }
         chunks.Clear(); enemyRecords.Clear(); activeEnemies.Clear(); reachedMarkers.Clear();
         generatedRoot = new GameObject("Streamed pillar - seed " + currentSeed).transform;
@@ -109,7 +134,7 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
     private void EnsureRowReady(int row)
     {
         var chunk = GetChunk(Mathf.Clamp(row, 0, metrics.LastRow) / metrics.RowsPerChunk);
-        while (chunk.NextRow < chunk.EndRow) BuildNext(chunk);
+        while (chunk.NextRow < chunk.EndRow) if (!BuildNext(chunk)) break;
     }
     private void PrepareRespawn(Vector3 destination)
     {
@@ -138,6 +163,8 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
         removal.Clear();
         foreach (var pair in chunks)
         {
+            // Keep the unbeaten boss and its floor together; streaming must not reset its HP or drop it.
+            if (BossRouteLocked && pair.Key == bossRow / metrics.RowsPerChunk) continue;
             float low = pair.Key * metrics.ChunkHeight, high = low + metrics.ChunkHeight;
             if (high < height - below - settings.unloadBuffer || low > height + above + settings.unloadBuffer)
                 removal.Add(pair.Key);
@@ -164,10 +191,11 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
         int budget = Mathf.Clamp(settings.platformsPerFrame, 1, 12);
         foreach (var chunk in buildOrder)
             while (chunk.Root != null && chunk.NextRow < chunk.EndRow && budget > 0)
-            { BuildNext(chunk); budget--; }
+            { if (!BuildNext(chunk)) break; budget--; }
     }
-    private void BuildNext(Chunk chunk)
+    private bool BuildNext(Chunk chunk)
     {
+        if (BossRouteLocked && chunk.NextRow > bossRow) return false;
         var landing = GetLanding(chunk.NextRow++);
         var platform = Instantiate(settings.platformPrefab, chunk.Root.transform);
         platform.name = "Landing " + landing.Row + " - " + landing.Shape;
@@ -192,12 +220,26 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
             var supportRenderer = support.GetComponent<SpriteRenderer>();
             if (supportRenderer != null) supportRenderer.color = new Color(landing.Color.r * 0.8f, landing.Color.g * 0.8f, landing.Color.b * 0.8f);
         }
+        if (landing.Row == bossRow)
+        {
+            var floor = platform.GetComponent<Collider2D>();
+            var effector = platform.AddComponent<PlatformEffector2D>(); effector.useOneWay = true; effector.useOneWayGrouping = true;
+            floor.usedByEffector = true;
+            if (!BossDefeated)
+            {
+                var room = new GameObject("Fire Worm - Required Encounter"); room.transform.SetParent(chunk.Root.transform, false);
+                room.transform.position = transform.position + (Vector3)landing.Center;
+                bossGate = room.AddComponent<BossFightGate>();
+                bossGate.Initialize(settings.bossEncounter, floor, player, () => run.BossDefeated = true);
+            }
+        }
         if (landing.MarkerIndex >= 0 && settings.heightMarkers[landing.MarkerIndex].prefab != null)
             Instantiate(settings.heightMarkers[landing.MarkerIndex].prefab,
                 transform.position + (Vector3)landing.Center, Quaternion.identity, chunk.Root.transform);
         chunk.Built++;
         Physics2D.SyncTransforms();
         SpawnEnemy(landing);
+        return true;
     }
     private void SpawnEnemy(VerticalLayout.Landing landing)
     {
@@ -260,6 +302,7 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
         }
         if (!player.IsGrounded) return;
         int row = Mathf.Clamp(Mathf.RoundToInt((feet - transform.position.y) / metrics.RowHeight), 0, metrics.LastRow);
+        if (BossRouteLocked && row > bossRow) return;
         var landing = GetLanding(row);
         float x = playerShape.bounds.center.x - transform.position.x;
         float margin = playerShape.bounds.extents.x + 0.1f;

@@ -5,6 +5,8 @@ public class EnemyHealth : MonoBehaviour
 {
     [Header("Enemy Health")]
     [SerializeField] private int maxHealth = 3;
+    [Min(0), SerializeField] private float despawnDelay;
+    public bool DamageEnabled { get; set; } = true;
 
     private int currentHealth;
 
@@ -38,7 +40,7 @@ public class EnemyHealth : MonoBehaviour
 
     public void TakeDamage(int amount)
     {
-        if (amount <= 0 || currentHealth <= 0)
+        if (!DamageEnabled || amount <= 0 || currentHealth <= 0)
         {
             return;
         }
@@ -70,7 +72,7 @@ public class EnemyHealth : MonoBehaviour
 
     public bool TakeCombatDamage(int amount, Vector2 awayFromAttacker)
     {
-        if (amount <= 0 || currentHealth <= 0) return false;
+        if (!DamageEnabled || amount <= 0 || currentHealth <= 0) return false;
         TakeDamage(amount);
         if (currentHealth > 0) GetComponent<EnemyMotor>()?.TakeHit(awayFromAttacker);
         return true;
@@ -82,6 +84,12 @@ public class EnemyHealth : MonoBehaviour
 
         GetComponent<EnemyCombat>()?.CancelIntent();
         GetComponent<CombatAttack>()?.CancelAll();
-        Destroy(gameObject);
+        if (despawnDelay > 0)
+        {
+            foreach (var shape in GetComponentsInChildren<Collider2D>()) shape.enabled = false;
+            var body = GetComponent<Rigidbody2D>();
+            if (body != null) { body.linearVelocity = Vector2.zero; body.simulated = false; }
+        }
+        Destroy(gameObject, despawnDelay);
     }
 }

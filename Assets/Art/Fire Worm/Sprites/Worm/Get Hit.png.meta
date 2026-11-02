@@ -55,12 +55,12 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 1
+  spriteMode: 2
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
+  spritePixelsToUnits: 12
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -122,89 +122,67 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Get Hit_0
+      name: Get Hit_00
       rect:
         serializedVersion: 2
-        x: 21
-        y: 31
-        width: 42
-        height: 44
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 0
+        y: 0
+        width: 90
+        height: 90
+      alignment: 9
+      pivot: {x: 0.5, y: 0.35555556}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: f627d49afa8d75830800000000000000
-      internalID: 4059951838069092975
+      spriteID: dd5b1d79825761a469e7725a85b3645b
+      internalID: -1238891753
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Get Hit_1
+      name: Get Hit_01
       rect:
         serializedVersion: 2
-        x: 108
-        y: 31
-        width: 45
-        height: 34
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 90
+        y: 0
+        width: 90
+        height: 90
+      alignment: 9
+      pivot: {x: 0.5, y: 0.35555556}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: ec07060fc3e1e5a30800000000000000
-      internalID: 4205832349090345166
+      spriteID: 8b9ce491069ecef4cafa5c94d35fce34
+      internalID: -1157558055
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Get Hit_2
+      name: Get Hit_02
       rect:
         serializedVersion: 2
-        x: 145
-        y: 65
-        width: 9
-        height: 12
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 180
+        y: 0
+        width: 90
+        height: 90
+      alignment: 9
+      pivot: {x: 0.5, y: 0.35555556}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 5d5430f6c8e8da4b0800000000000000
-      internalID: -5427525242102528555
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Get Hit_3
-      rect:
-        serializedVersion: 2
-        x: 197
-        y: 31
-        width: 47
-        height: 47
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 8483a0b3c940c3c60800000000000000
-      internalID: 7799113723750791240
+      spriteID: 3034dd51cda8afa4b9032851141f9257
+      internalID: -219093099
       vertices: []
       indices: 
       edges: []
@@ -223,10 +201,9 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Get Hit_0: 4059951838069092975
-      Get Hit_1: 4205832349090345166
-      Get Hit_2: -5427525242102528555
-      Get Hit_3: 7799113723750791240
+      Get Hit_00: -1238891753
+      Get Hit_01: -1157558055
+      Get Hit_02: -219093099
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

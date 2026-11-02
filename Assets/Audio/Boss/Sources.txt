@@ -1,0 +1,13 @@
+Boss and shop sound effects: Kenney, CC0 (public domain).
+https://kenney.nl/assets/impact-sounds
+https://kenney.nl/assets/rpg-audio
+
+Original filenames:
+boss-hit.ogg: impactPunch_heavy_000.ogg
+boss-slam.ogg: impactMining_000.ogg
+boss-death.ogg: impactSoft_heavy_000.ogg
+boss-windup.ogg: creak1.ogg
+fire-cast.ogg: knifeSlice.ogg
+shop-purchase.ogg: handleCoins.ogg
+
+Pack license files are included beside this file.

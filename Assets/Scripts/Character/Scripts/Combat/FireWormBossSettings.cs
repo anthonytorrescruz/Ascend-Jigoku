@@ -25,6 +25,21 @@ public sealed class FireWormBossSettings : ScriptableObject
     [Min(0)] public int slamDamage = 1;
     public Vector2 slamSize = new Vector2(3.8f, 1.4f);
     [Min(0)] public float slamClearance = 0.05f;
+    [Header("Optional Three-Phase Encounter (off for existing arenas)")]
+    public bool healthPhases;
+    [Range(0.1f, 0.95f)] public float phaseTwoHealth = 0.67f;
+    [Range(0.05f, 0.9f)] public float phaseThreeHealth = 0.34f;
+    [Min(0)] public float phaseTransitionSeconds = 0.8f;
+    [Range(0.1f, 1)] public float phaseTwoCooldownMultiplier = 0.85f;
+    [Range(0.1f, 1)] public float phaseThreeCooldownMultiplier = 0.7f;
+    [Min(1)] public int volleyWindupFrames = 54;
+    [Range(3, 7)] public int phaseThreeVolleyCount = 5;
+    [Range(5, 35)] public float volleySpreadDegrees = 14;
+    [Header("Phase Two / Three Ground Shockwave")]
+    public bool slamShockwaves;
+    [Min(0.1f)] public float shockwaveSpeed = 10;
+    [Min(0.1f)] public float shockwaveLifetime = 3;
+    public Vector2 shockwaveSize = new Vector2(1.5f, 0.6f);
     [Header("Placeholder Feedback")]
     public Color fireballColor = new Color(1, 0.3f, 0.05f);
     public Color warningColor = new Color(1, 0.7f, 0.1f, 0.3f);

@@ -31,6 +31,7 @@ public class PlayerParry : MonoBehaviour
     public ParryPhase Phase => PhaseAt(Time.time);
     public bool IsBusy => Phase != ParryPhase.Idle;
     public float RecoveryRemaining => Mathf.Max(0, recoveryEndsAt - Time.time);
+    [UnityEngine.Serialization.FormerlySerializedAs("perryClip")]
     public AudioClip parryClip;
     [Range(0, 1), SerializeField] private float parryVolume = 0.12f;
     public ParryPhase PhaseAt(float now)

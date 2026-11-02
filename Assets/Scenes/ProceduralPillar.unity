@@ -411,9 +411,12 @@ MonoBehaviour:
     m_Bits: 8
   knockbackSpeed: 8
   knockbackDuration: 0.15
-  dashSpeed: 20
-  dashDuration: 0.2
-  dashCooldown: 1
+  dashSpeed: 24
+  dashDuration: 0.15
+  dashCooldown: 0.4
+  dashEndSpeed: 0.8
+  dashAirCarry: 0.5
+  dashAirGravity: 0.3
   wallCheck: {fileID: 1278011213}
   wallCheckDistance: 0.6
   wallLayer:
@@ -426,8 +429,8 @@ MonoBehaviour:
   isTouchingWall: 0
   jumpVolume: 0.27
   dashVolume: 0.27
-  jumpClip: {fileID: 0}
-  dashClip: {fileID: 0}
+  jumpClip: {fileID: 8300000, guid: c3f8985f439d56544b84ee3f38861434, type: 3}
+  dashClip: {fileID: 8300000, guid: 800b7235b475a32448d6054cb38bc726, type: 3}
 --- !u!4 &1309939420
 Transform:
   m_ObjectHideFlags: 0
@@ -489,7 +492,7 @@ MonoBehaviour:
   recoveryFrames: 16
   enemyStunFrames: 30
   showParry: 1
-  parryClip: {fileID: 0}
+  parryClip: {fileID: 8300000, guid: d60080ddfa85ade469b481ddd66f02af, type: 3}
   parryVolume: 0.43
 --- !u!114 &1309939423
 MonoBehaviour:

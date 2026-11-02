@@ -33,6 +33,8 @@ public sealed class VerticalGenerationSettings : ScriptableObject
     public int seed = 12345;
     [Header("Height Markers - Snap to Nearest Safe Landing")]
     public HeightMarker[] heightMarkers = Array.Empty<HeightMarker>();
+    [Header("Required Boss Before Checkpoint (optional)")]
+    public BossEncounterSettings bossEncounter;
     [Header("Enemies")]
     [Range(0, 1)] public float enemyChance = 0.45f;
     [Min(1)] public int firstEnemyRow = 5;

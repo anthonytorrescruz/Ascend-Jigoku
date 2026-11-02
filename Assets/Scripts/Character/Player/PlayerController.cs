@@ -31,17 +31,22 @@ public class PlayerController : MonoBehaviour
     private float knockbackVelocity;
     private Collider2D bodyShape;
     private PlayerSpell playerSpell;
+    private float normalGravity;
     private readonly List<ContactPoint2D> groundContacts = new List<ContactPoint2D>();
     public bool IsFacingRight => facingRight;
     public float MoveSpeed => moveSpeed;
     public float JumpSpeed => jumpForce;
     public int MaxJumps => maxJumpCount;
+    public void IncreaseMaxJumps(int amount) => maxJumpCount = Mathf.Clamp(maxJumpCount + Mathf.Max(0, amount), 1, 8);
     public bool IsKnockedBack => Time.time < knockbackEndsAt;
     public bool IsGrounded => CheckGrounded();
     [Header("Dash Functionality")]
     [SerializeField] private float dashSpeed = 20f;
     [SerializeField] private float dashDuration = 0.2f;
     [SerializeField] private float dashCooldown = 1f;
+    [Range(0, 1), SerializeField] private float dashEndSpeed = 0.4f;
+    [Range(0, 1), SerializeField] private float dashAirCarry = 0.5f;    
+    [Range(0, 1), SerializeField] private float dashAirGravity = 0.3f;
 
     private bool canDash = true;
     private bool isDashing;
@@ -65,6 +70,9 @@ public class PlayerController : MonoBehaviour
     private Animator animator;
     [Range(0, 1), SerializeField] private float jumpVolume = 0.12f;
     [Range(0, 1), SerializeField] private float dashVolume = 0.12f;
+    static readonly int AttackStateHash    = Animator.StringToHash("Attack 1");
+    static readonly int AirAttackStateHash = Animator.StringToHash("Air Attack");
+    static readonly int DashStateHash      = Animator.StringToHash("Dash");
     public AudioClip jumpClip;
     public AudioClip dashClip;
 
@@ -74,10 +82,11 @@ public class PlayerController : MonoBehaviour
     {
         animator = GetComponentInChildren<Animator>();
         if (rb == null) rb = GetComponent<Rigidbody2D>();
+        normalGravity = rb.gravityScale;
         foreach (var c in GetComponents<Collider2D>())
-            {
-                if (c.enabled && !c.isTrigger) { bodyShape = c; break; }
-            }
+        {
+            if (c.enabled && !c.isTrigger) { bodyShape = c; break; }
+        }
         playerSpell = GetComponent<PlayerSpell>();
         controls = new PlayerActions();
     }
@@ -98,21 +107,19 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         moveInput = controls.PlayerInput.Move.ReadValue<Vector2>();
-        /*
-        if (!IsKnockedBack && Mathf.Abs(moveInput.x) > 0.1f && (moveInput.x > 0) != facingRight)
-        {
-            facingRight = moveInput.x > 0;
-            Vector3 scale = transform.localScale;
-            scale.x *= -1;
-            transform.localScale = scale;
-        }
-        */
-        bool moving = Mathf.Abs(moveInput.x) > 0.1f && Mathf.Abs(rb.linearVelocityX) > 0.1f;
-        animator.SetFloat("Speed", moving ? 1f : 0f);
-
-        
         HandleFlip();
+
+    
+       
         bool grounded = CheckGrounded();
+
+         if (animator != null)
+        {
+            bool moving = Mathf.Abs(moveInput.x) > 0.1f && Mathf.Abs(rb.linearVelocityX) > 0.1f;
+            animator.SetFloat("Speed", moving ? 1f : 0f);
+            animator.SetBool("Grounded", grounded);
+            animator.SetFloat("VelocityY", rb.linearVelocityY);
+        }
         
 
         CalculateCoyoteAndJumpBufferTime(grounded);
@@ -152,17 +159,26 @@ public class PlayerController : MonoBehaviour
         
     }
 
+    public void PlayAttackAnimation()
+    {
+        if (animator == null) return;
+        bool grounded = CheckGrounded();
+        animator.SetBool("Grounded", grounded);
+        animator.Play(grounded ? AttackStateHash : AirAttackStateHash, 0, 0f);
+    }
     private void CalculateCoyoteAndJumpBufferTime(bool grounded)
     {
         if (grounded) coyoteTimeCounter = coyoteTime;
         else coyoteTimeCounter -= Time.deltaTime;
 
         if (jumpBufferCounter > 0) jumpBufferCounter -= Time.deltaTime;
+
+        if (!grounded && coyoteTimeCounter <= 0 && jumpCount == 0) jumpCount = 1;
     }
 
     private void HandleFlip()
     {
-        if (IsKnockedBack || isWallJumping) return;
+        if (IsKnockedBack || isWallJumping || isDashing) return;
 
          if (Mathf.Abs(moveInput.x) > 0.1f)
         {
@@ -174,8 +190,7 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        if (animator != null)
-            animator.SetFloat("Speed", Mathf.Abs(rb.linearVelocityX));
+        
     }
 
     private void Flip()
@@ -237,7 +252,7 @@ public class PlayerController : MonoBehaviour
         velocityRef = Vector2.zero;
         rb.linearVelocity = new Vector2(jumpDir * wallJumpForceX, wallJumpForceY);
 
-        if (animator != null) animator.SetTrigger("Jump");
+        
 
         StartCoroutine(WallJumpLock());
     }
@@ -256,6 +271,7 @@ public class PlayerController : MonoBehaviour
         coyoteTimeCounter = 0;   
         wasGrounded = false;
         rb.linearVelocityY = jumpForce;
+        CombatFeedback.PlayClip(jumpClip, jumpVolume);
     }
 
     private bool CheckGrounded()
@@ -302,11 +318,11 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocityY = jumpForce;
         */
         jumpBufferCounter = jumpBufferTime;
-        CombatFeedback.PlayClip(jumpClip, jumpVolume);
     }
 
     private void OnDash(InputAction.CallbackContext context)
     {
+        /*
         playerSpell?.Cancel();
         if(canDash && !isDashing)
         {
@@ -316,25 +332,50 @@ public class PlayerController : MonoBehaviour
             }
         }
         CombatFeedback.PlayClip(dashClip, dashVolume);
+        */
+        playerSpell?.Cancel();
+        if (!canDash || isDashing) return;
+        if (!CheckGrounded() && hasDashedInAir) return;
+        StartCoroutine(Dash());
+        CombatFeedback.PlayClip(dashClip, dashVolume);
     }
     IEnumerator Dash()
     {
         canDash = false;
         isDashing = true;
 
+        if (animator != null) animator.Play(DashStateHash, 0, 0f);
+
+        float dashDirection = Mathf.Abs(moveInput.x) > 0.1f ? Mathf.Sign(moveInput.x) : (facingRight ? 1f : -1f);
+        if ((dashDirection > 0) != facingRight) Flip();
+
         float originalGravity = rb.gravityScale;
-        rb.gravityScale = 0f;
+        bool inAir = !CheckGrounded();
 
-        float dashDirection = facingRight ? 1f : -1f;
-        rb.linearVelocityX = dashDirection * dashSpeed;
-
-        if(!CheckGrounded())
+        if (inAir)
         {
             hasDashedInAir = true;
+            rb.gravityScale = originalGravity * dashAirGravity;
+            rb.linearVelocityY *= dashAirCarry;   // keep part of the jump or fall
+        }
+        else
+        {
+            rb.gravityScale = 0f;
+            rb.linearVelocityY = 0f;              // ground dashes stay flat
         }
 
-        yield return new WaitForSeconds(dashDuration);
+        float elapsed = 0f;
+        while (elapsed < dashDuration)
+        {
+            float k = elapsed / dashDuration;
+            float speed = Mathf.Lerp(dashSpeed, dashSpeed * dashEndSpeed, k * k);
+            rb.linearVelocityX = dashDirection * speed;   // only X is driven, so Y is left to physics
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
         rb.gravityScale = originalGravity;
+        velocityRef = Vector2.zero;
         isDashing = false;
 
         yield return new WaitForSeconds(dashCooldown);
@@ -375,6 +416,17 @@ public class PlayerController : MonoBehaviour
         moveInput = velocityRef = Vector2.zero;
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0;
+    }
+
+    // Used by dialogue/menu locks so a suspended dash cannot resume on closing the UI.
+    public void SuspendMovement()
+    {
+        StopAllCoroutines();
+        isDashing = isWallJumping = false;
+        canDash = true;
+        rb.gravityScale = normalGravity;
+        jumpBufferCounter = coyoteTimeCounter = 0;
+        ResetMovement();
     }
 
     private void OnDrawGizmos()

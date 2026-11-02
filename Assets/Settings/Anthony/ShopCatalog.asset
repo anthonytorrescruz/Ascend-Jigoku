@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32c7a19669237974daf15250f8c8b7e2, type: 3}
+  m_Name: ShopCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::AscendJigoku.Gameplay.ShopCatalog
+  greeting: Choose an upgrade for the climb.
+  offers:
+  - kind: 0
+    title: Vitality
+    description: +1 maximum health and one health restored.
+    basePrice: 100
+    priceMultiplier: 1.5
+    maxPurchases: 3
+    amount: 1
+  - kind: 1
+    title: Sharpen
+    description: +1 melee damage. Your ranged attack follows melee damage.
+    basePrice: 150
+    priceMultiplier: 1.5
+    maxPurchases: 3
+    amount: 1
+  - kind: 2
+    title: Air Step
+    description: '+1 air jump: three jumps total, including the ground jump.'
+    basePrice: 250
+    priceMultiplier: 1.5
+    maxPurchases: 1
+    amount: 1
+  purchaseSound: {fileID: 8300000, guid: 0e037242f63c11041a0fadccbb7e98b4, type: 3}

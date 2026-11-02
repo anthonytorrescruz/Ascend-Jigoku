@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public enum FireWormState { Idle, Chase, FireballWindup, SlamWindup, SlamActive, Recovery, Stunned }
-public enum FireWormAttack { Fireball, Slam }
+public enum FireWormState { Idle, Chase, FireballWindup, SlamWindup, SlamActive, Recovery, Stunned, VolleyWindup, Transition }
+public enum FireWormAttack { Fireball, Slam, Volley }
 
 // Reuses EnemyHealth, EnemyMotor, EnemyContactDamage and the combat resolver.
 [DefaultExecutionOrder(-50)]
@@ -39,6 +39,14 @@ public sealed class FireWormBoss : MonoBehaviour
     public bool IsFacingRight => bodyFacing > 0;
     public int FireballsLaunched { get; private set; }
     public int SlamsPerformed { get; private set; }
+    public int VolleysPerformed { get; private set; }
+    public int HealthPhase { get; private set; } = 1;
+    private bool volleyNext;
+    public bool EncounterActive { get; private set; } = true;
+    public int ShockwavesLaunched { get; private set; }
+    public void BindArena(Collider2D value) => arena = value;
+    public void SetEncounterActive(bool value)
+    { EncounterActive = value; if (!value && attack != null) CancelAttacks(true); }
     public Bounds BodyBounds
     {
         get
@@ -77,7 +85,7 @@ public sealed class FireWormBoss : MonoBehaviour
     private void OnEnable() => health.HealthChanged += OnHealthChanged;
     private void Start()
     {
-        // This component selects the two boss attacks; EnemyCombat still supplies targeting and parry stun.
+        // EnemyCombat supplies targeting/parry stun; this component selects the boss patterns.
         combat.enabled = false;
         combat.SetTarget(FindAnyObjectByType<PlayerHealth>());
         previousHealth = health.CurrentHealth;
@@ -86,17 +94,29 @@ public sealed class FireWormBoss : MonoBehaviour
     {
         if (current < previousHealth) tailFlashUntil = Time.time + 0.1f;
         previousHealth = current;
+        if (settings == null || !settings.healthPhases || current <= 0) return;
+        int phase = current <= maximum * settings.phaseThreeHealth ? 3
+            : current <= maximum * settings.phaseTwoHealth ? 2 : 1;
+        if (phase <= HealthPhase) return;
+        HealthPhase = phase;
+        CancelAttacks(true);
+        State = FireWormState.Transition;
+        phaseEndsAt = Time.time + settings.phaseTransitionSeconds;
+        nextAttackAt = phaseEndsAt;
     }
     private void FixedUpdate() => Tick(Time.time);
     public void Tick(float now)
     {
         if (settings == null || combat.Definition == null || health.CurrentHealth <= 0 || Time.timeScale <= 0) { motor.Stop(); return; }
+        if (!EncounterActive) { motor.Stop(); return; }
         if (combat.Target == null && now >= nextTargetSearch)
         { combat.SetTarget(FindAnyObjectByType<PlayerHealth>()); nextTargetSearch = now + 0.5f; }
         var target = combat.Target;
         if (target == null || !target.isActiveAndEnabled || target.CurrentHealth <= 0)
         { CancelAttacks(true); return; }
         bool canFacePlayer = FacePlayer(target, now);
+        if (State == FireWormState.Transition)
+        { motor.Stop(); body.linearVelocityX = 0; if (now < phaseEndsAt) return; State = FireWormState.Idle; }
         if (combat.IsStunned)
         {
             motor.Stop(); body.linearVelocityX = 0; attack.CancelAll(); slamVisual.gameObject.SetActive(false);
@@ -105,17 +125,27 @@ public sealed class FireWormBoss : MonoBehaviour
             return;
         }
         if (State == FireWormState.Stunned) State = FireWormState.Idle;
-        if (State == FireWormState.FireballWindup || State == FireWormState.SlamWindup)
+        if (State == FireWormState.FireballWindup || State == FireWormState.SlamWindup || State == FireWormState.VolleyWindup)
         {
             motor.Stop();
             if (now < phaseEndsAt) return;
             attack.Feedback?.CancelWindup();
             if (State == FireWormState.FireballWindup) { LaunchFireball(); Recover(now); }
+            else if (State == FireWormState.VolleyWindup)
+            {
+                int count = HealthPhase >= 3 ? Mathf.Clamp(settings.phaseThreeVolleyCount, 3, 7) : 3;
+                for (int i = 0; i < count; i++) LaunchFireball((i - (count - 1) * 0.5f) * settings.volleySpreadDegrees);
+                VolleysPerformed++; Recover(now);
+            }
             else
             {
                 attack.BeginAttack(attackFacing < 0 ? CombatDirection.Left : CombatDirection.Right, slamOffset,
                     settings.slamSize, settings.slamDamage, settings.slamActiveFrames, ~0, now);
                 State = FireWormState.SlamActive; SlamsPerformed++;
+                if (settings.slamShockwaves && HealthPhase >= 2)
+                {
+                    LaunchGroundWave(-1); LaunchGroundWave(1);
+                }
                 phaseEndsAt = now + Mathf.Max(1, settings.slamActiveFrames) / CombatAttack.ReferenceFramesPerSecond;
             }
             return;
@@ -134,13 +164,25 @@ public sealed class FireWormBoss : MonoBehaviour
         if ((player.center - bounds.center).sqrMagnitude > combat.Definition.aggroRadius * combat.Definition.aggroRadius
             || (arena != null && (player.center.x < arena.bounds.min.x || player.center.x > arena.bounds.max.x)))
         { State = FireWormState.Idle; motor.Stop(); return; }
-        if (!canFacePlayer) { State = FireWormState.Idle; motor.Stop(); body.linearVelocityX = 0; return; }
+        if (!canFacePlayer)
+        {
+            // A player standing on the tail can obstruct a safe body turn. Keep the solids in place,
+            // but still threaten that position with an aimed shot rather than becoming defenseless.
+            State = FireWormState.Idle; motor.Stop(); body.linearVelocityX = 0;
+            if (settings.automaticAttacks && now >= nextAttackAt && motor.IsGrounded && combat.HasLineOfSight())
+                TryBeginAttack(FireWormAttack.Fireball, now);
+            return;
+        }
         float gap = facing < 0 ? bounds.min.x - player.max.x : player.min.x - bounds.max.x;
         bool lowEnoughForSlam = player.center.y <= bounds.min.y + settings.slamSize.y + 0.5f;
         if (settings.automaticAttacks && now >= nextAttackAt && motor.IsGrounded && combat.HasLineOfSight())
         {
             if (gap <= settings.slamRange && lowEnoughForSlam && TryBeginAttack(FireWormAttack.Slam, now)) return;
-            if (gap <= settings.fireballRange && TryBeginAttack(FireWormAttack.Fireball, now)) return;
+            if (gap <= settings.fireballRange)
+            {
+                var kind = settings.healthPhases && HealthPhase >= 2 && volleyNext ? FireWormAttack.Volley : FireWormAttack.Fireball;
+                if (TryBeginAttack(kind, now)) { volleyNext = !volleyNext; return; }
+            }
         }
         State = FireWormState.Chase;
         float desired = gap > combat.Definition.stoppingDistance ? facing * combat.Definition.moveSpeed : 0;
@@ -191,7 +233,7 @@ public sealed class FireWormBoss : MonoBehaviour
             attack.CurrentSwing.RefreshBox();
         }
         if (State == FireWormState.SlamWindup) PrepareSlam(now);
-        else if (State == FireWormState.FireballWindup) lockedAim = combat.PredictPlayerPosition();
+        else if (State == FireWormState.FireballWindup || State == FireWormState.VolleyWindup) lockedAim = combat.PredictPlayerPosition();
         return true;
     }
     private void PrepareSlam(float now)
@@ -207,17 +249,19 @@ public sealed class FireWormBoss : MonoBehaviour
     }
     public bool TryBeginAttack(FireWormAttack kind, float now)
     {
-        if (!isActiveAndEnabled || settings == null || combat.Definition == null || health.CurrentHealth <= 0 || combat.Target == null
+        if (!EncounterActive || !isActiveAndEnabled || settings == null || combat.Definition == null || health.CurrentHealth <= 0 || combat.Target == null
             || combat.Target.CurrentHealth <= 0 || combat.IsStunned || Time.timeScale <= 0 || now < nextAttackAt
             || (State != FireWormState.Idle && State != FireWormState.Chase)) return false;
-        if (!FacePlayer(combat.Target, now)) return false;
+        if (!FacePlayer(combat.Target, now) && kind == FireWormAttack.Slam) return false;
+        if (kind == FireWormAttack.Volley && (!settings.healthPhases || HealthPhase < 2)) return false;
         motor.Stop(); body.linearVelocityX = 0;
         attackFacing = facing;
-        int frames = kind == FireWormAttack.Fireball ? settings.fireballWindupFrames : settings.slamWindupFrames;
+        int frames = kind == FireWormAttack.Volley ? settings.volleyWindupFrames
+            : kind == FireWormAttack.Fireball ? settings.fireballWindupFrames : settings.slamWindupFrames;
         phaseEndsAt = now + Mathf.Max(1, frames) / CombatAttack.ReferenceFramesPerSecond;
         attack.Feedback?.Windup(phaseEndsAt - now);
-        if (kind == FireWormAttack.Fireball)
-        { State = FireWormState.FireballWindup; lockedAim = combat.PredictPlayerPosition(); }
+        if (kind == FireWormAttack.Fireball || kind == FireWormAttack.Volley)
+        { State = kind == FireWormAttack.Volley ? FireWormState.VolleyWindup : FireWormState.FireballWindup; lockedAim = combat.PredictPlayerPosition(); }
         else
         {
             State = FireWormState.SlamWindup;
@@ -229,12 +273,34 @@ public sealed class FireWormBoss : MonoBehaviour
     {
         State = FireWormState.Recovery;
         phaseEndsAt = now + Mathf.Max(0, settings.recoverySeconds);
-        nextAttackAt = now + Mathf.Max(0, settings.attackCooldownSeconds);
+        float multiplier = !settings.healthPhases ? 1 : HealthPhase >= 3 ? settings.phaseThreeCooldownMultiplier
+            : HealthPhase == 2 ? settings.phaseTwoCooldownMultiplier : 1;
+        nextAttackAt = now + Mathf.Max(0, settings.attackCooldownSeconds * multiplier);
         attack.CancelAll(); slamVisual.gameObject.SetActive(false);
     }
-    private void LaunchFireball()
+    private void LaunchFireball(float angle = 0)
     {
-        if (pool.Count == 0 && projectiles.Count >= Mathf.Max(1, settings.maximumFireballs)) return;
+        var shot = GetProjectile();
+        if (shot == null) return;
+        Bounds head = headShape.bounds;
+        Vector2 origin = new Vector2(head.center.x + facing * (head.extents.x + settings.fireballSize.x * 0.5f + 0.05f),
+            head.center.y + 0.3f);
+        Vector2 heading = lockedAim - origin;
+        if (heading.sqrMagnitude < 0.001f) heading = Vector2.right * facing;
+        heading = Quaternion.Euler(0, 0, angle) * heading.normalized;
+        shot.Launch(origin, heading); FireballsLaunched++;
+    }
+    private void LaunchGroundWave(int side)
+    {
+        var shot = GetProjectile(); if (shot == null) return;
+        Bounds bounds = BodyBounds;
+        float x = side < 0 ? bounds.min.x - settings.shockwaveSize.x * 0.5f : bounds.max.x + settings.shockwaveSize.x * 0.5f;
+        shot.Launch(new Vector2(x, bounds.min.y + settings.shockwaveSize.y * 0.5f + 0.03f), Vector2.right * side, true);
+        ShockwavesLaunched++;
+    }
+    private BossFireball GetProjectile()
+    {
+        if (pool.Count == 0 && projectiles.Count >= Mathf.Max(1, settings.maximumFireballs)) return null;
         if (projectileRoot == null)
         {
             projectileRoot = new GameObject("Boss Fireballs").transform;
@@ -249,12 +315,7 @@ public sealed class FireWormBoss : MonoBehaviour
             shot.Configure(this, headVisual.sprite, headVisual.sortingLayerID, headVisual.sortingOrder + 2, Recycle);
             projectiles.Add(shot);
         }
-        Bounds head = headShape.bounds;
-        Vector2 origin = new Vector2(head.center.x + facing * (head.extents.x + settings.fireballSize.x * 0.5f + 0.05f),
-            head.center.y + 0.3f);
-        Vector2 heading = lockedAim - origin;
-        if (heading.sqrMagnitude < 0.001f) heading = Vector2.right * facing;
-        shot.Launch(origin, heading.normalized); FireballsLaunched++;
+        return shot;
     }
     private void Recycle(BossFireball shot) => pool.Push(shot);
     public void CancelAttacks(bool clearFireballs = false)
@@ -276,6 +337,7 @@ public sealed class FireWormBoss : MonoBehaviour
         }
         if (tailVisual != null)
             tailVisual.color = Time.time < tailFlashUntil ? Color.white
+                : State == FireWormState.VolleyWindup ? Color.Lerp(tailColor, Color.magenta, 0.7f)
                 : State == FireWormState.FireballWindup || State == FireWormState.SlamWindup
                 ? Color.Lerp(tailColor, Color.yellow, 0.6f) : tailColor;
     }

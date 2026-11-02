@@ -30,6 +30,12 @@ public class PlayerHealth : MonoBehaviour
 
     public event Action<int, int> HealthChanged;
     public event Action<int> Damaged;
+    public bool IncreaseMaxHealth(int amount)
+    {
+        if (amount <= 0 || currentHealth <= 0 || maxHealth >= 99) return false;
+        int gained = Mathf.Min(amount, 99 - maxHealth); maxHealth += gained; currentHealth += gained;
+        HealthChanged?.Invoke(currentHealth, maxHealth); return true;
+    }
 
     public bool Heal(int amount)
     {
@@ -62,7 +68,6 @@ public class PlayerHealth : MonoBehaviour
 
         int previousHealth = currentHealth;
         currentHealth = Mathf.Max(0, currentHealth - amount);
-        // The shared source survives scene reloads, including a lethal hit's voice cue.
         Damaged?.Invoke(previousHealth - currentHealth);
         GetComponent<CombatFeedback>()?.Hit();
 
@@ -75,7 +80,7 @@ public class PlayerHealth : MonoBehaviour
         {
             Die();
         }
-        if (currentHealth >= 1 )
+        else
         {
             CombatFeedback.PlayClip(damageSound, damageSoundVolume);
         }
@@ -96,9 +101,13 @@ public class PlayerHealth : MonoBehaviour
         GetComponent<PlayerCombat>()?.Cancel();
         GetComponent<PlayerParry>()?.Cancel();
         GetComponent<CombatAttack>()?.CancelAll();
+        var deathHandler = GetComponent<PlayerDeathHandler>();
+        // Keep the death cue for both the original Death scene and an opt-in test-scene flow.
+        if (deathHandler != null || ShouldShowDeathScreen)
+            CombatFeedback.PlayClip(deathSound, deathSoundVolume);
+        if (deathHandler != null) { deathHandler.OnPlayerDied(); return; }
         if (ShouldShowDeathScreen)
         {
-            CombatFeedback.PlayClip(deathSound, deathSoundVolume);
             if (playerController != null) playerController.enabled = false;
             var combat = GetComponent<PlayerCombat>();
             if (combat != null) combat.enabled = false;
