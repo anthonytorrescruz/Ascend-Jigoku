@@ -31,6 +31,8 @@ public class PlayerController : MonoBehaviour
     private float knockbackVelocity;
     private Collider2D bodyShape;
     private PlayerSpell playerSpell;
+    private PlayerHealth health;
+    private bool IsDead => health != null && health.CurrentHealth <= 0;
     private float normalGravity;
     private readonly List<ContactPoint2D> groundContacts = new List<ContactPoint2D>();
     public bool IsFacingRight => facingRight;
@@ -76,6 +78,12 @@ public class PlayerController : MonoBehaviour
     public AudioClip jumpClip;
     public AudioClip dashClip;
 
+    static readonly int ParryStateHash = Animator.StringToHash("Parry");
+    static readonly int DeathStateHash = Animator.StringToHash("Death");
+    static readonly int IdleStateHash  = Animator.StringToHash("Idle");
+    static readonly int JumpStartStateHash = Animator.StringToHash("Jump-Start");
+    static readonly int WallJumpStateHash = Animator.StringToHash("Wall Jump");
+
     
 
     private void Awake()
@@ -88,6 +96,7 @@ public class PlayerController : MonoBehaviour
             if (c.enabled && !c.isTrigger) { bodyShape = c; break; }
         }
         playerSpell = GetComponent<PlayerSpell>();
+        health = GetComponent<PlayerHealth>();
         controls = new PlayerActions();
     }
     private void OnEnable()
@@ -107,6 +116,7 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         moveInput = controls.PlayerInput.Move.ReadValue<Vector2>();
+        if (IsDead) moveInput = Vector2.zero;
         HandleFlip();
 
     
@@ -156,6 +166,11 @@ public class PlayerController : MonoBehaviour
         {
             isWallSliding = false;
         }
+        if (animator != null)
+        {
+            animator.SetBool("OnWall", isTouchingWall && !IsGrounded);
+            animator.SetBool("WallSliding", isWallSliding);
+        }
         
     }
 
@@ -165,6 +180,22 @@ public class PlayerController : MonoBehaviour
         bool grounded = CheckGrounded();
         animator.SetBool("Grounded", grounded);
         animator.Play(grounded ? AttackStateHash : AirAttackStateHash, 0, 0f);
+    }
+
+    public void PlayParryAnimation()
+    {
+        if (animator == null) return;
+        animator.SetBool("Grounded", CheckGrounded());
+        animator.Play(ParryStateHash, 0, 0f);
+    }
+    public void PlayDeathAnimation()
+    {
+        if (animator != null) animator.Play(DeathStateHash, 0, 0f);
+    }
+
+    public void ResetAnimation()
+    {
+        if (animator != null) animator.Play(IdleStateHash, 0, 0f);
     }
     private void CalculateCoyoteAndJumpBufferTime(bool grounded)
     {
@@ -228,18 +259,7 @@ public class PlayerController : MonoBehaviour
 
     private void PerformWallJump()
     {
-        /*
-        isWallJumping = true;
-
-        animator.SetTrigger("Jump");
-
-        jumpBufferCounter = 0;
-        coyoteTimeCounter = 0;
-
-        float jumpDir = facingDirection; 
-
-        rb.linearVelocity = new Vector2(jumpDir * wallJumpForceX, wallJumpForceY);
-        */
+       
          jumpBufferCounter = 0;
         coyoteTimeCounter = 0;
         jumpCount = 1;
@@ -251,8 +271,14 @@ public class PlayerController : MonoBehaviour
 
         velocityRef = Vector2.zero;
         rb.linearVelocity = new Vector2(jumpDir * wallJumpForceX, wallJumpForceY);
+        CombatFeedback.PlayClip(jumpClip, jumpVolume);
 
-        
+        if (animator != null)
+        {
+            animator.SetBool("OnWall", false);
+            animator.SetBool("WallSliding", false);
+            animator.Play(WallJumpStateHash, 0, 0f);
+        }
 
         StartCoroutine(WallJumpLock());
     }
@@ -307,6 +333,7 @@ public class PlayerController : MonoBehaviour
     }
     private void OnJump(InputAction.CallbackContext context)
     {
+        if (IsDead) return;
         playerSpell?.Cancel();
 
         /*
@@ -333,6 +360,7 @@ public class PlayerController : MonoBehaviour
         }
         CombatFeedback.PlayClip(dashClip, dashVolume);
         */
+        if (IsDead) return;
         playerSpell?.Cancel();
         if (!canDash || isDashing) return;
         if (!CheckGrounded() && hasDashedInAir) return;

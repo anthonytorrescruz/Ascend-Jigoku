@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using AscendJigoku.UI;
+using System.Collections;
 
 public class PlayerHealth : MonoBehaviour
 {
@@ -18,6 +19,9 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private bool showDeathScreen = true;
     [Tooltip("Restart immediately during Unity playtesting. Turn this off to preview the death screen. Builds still show it.")]
     [SerializeField] private bool skipDeathScreenInEditor = true;
+
+    [Header("Death Animation")]
+    [Min(0), SerializeField] private float deathAnimationSeconds = 0.8f;
     private float invulnerableUntil;
 
     private int currentHealth;
@@ -101,20 +105,31 @@ public class PlayerHealth : MonoBehaviour
         GetComponent<PlayerCombat>()?.Cancel();
         GetComponent<PlayerParry>()?.Cancel();
         GetComponent<CombatAttack>()?.CancelAll();
+
+        if (playerController != null) playerController.PlayDeathAnimation();
+
         var deathHandler = GetComponent<PlayerDeathHandler>();
-        // Keep the death cue for both the original Death scene and an opt-in test-scene flow.
         if (deathHandler != null || ShouldShowDeathScreen)
             CombatFeedback.PlayClip(deathSound, deathSoundVolume);
-        if (deathHandler != null) { deathHandler.OnPlayerDied(); return; }
-        if (ShouldShowDeathScreen)
-        {
-            if (playerController != null) playerController.enabled = false;
-            var combat = GetComponent<PlayerCombat>();
-            if (combat != null) combat.enabled = false;
-            var parry = GetComponent<PlayerParry>();
-            if (parry != null) parry.enabled = false;
-            DeathScreen.Show(gameObject.scene);
-        }
-        else SceneManager.LoadScene(gameObject.scene.name);
+
+        StartCoroutine(FinishDeath(deathHandler));
     }
+
+    private IEnumerator FinishDeath(PlayerDeathHandler deathHandler)
+{
+    yield return new WaitForSeconds(deathAnimationSeconds);
+
+    if (deathHandler != null) { deathHandler.OnPlayerDied(); yield break; }
+    if (ShouldShowDeathScreen)
+    {
+        if (playerController != null) playerController.enabled = false;
+        var combat = GetComponent<PlayerCombat>();
+        if (combat != null) combat.enabled = false;
+        var parry = GetComponent<PlayerParry>();
+        if (parry != null) parry.enabled = false;
+        DeathScreen.Show(gameObject.scene);
+    }
+    else SceneManager.LoadScene(gameObject.scene.name);
+}
+
 }

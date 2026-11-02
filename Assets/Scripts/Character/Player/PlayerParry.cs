@@ -18,6 +18,7 @@ public class PlayerParry : MonoBehaviour
     private PlayerActions controls;
     private InputAction parryInput;
     private CombatAttack attack;
+    private PlayerController playerController;
     private PlayerHealth health;
     private Collider2D bodyCollider;
     private float activeStartsAt = float.NegativeInfinity;
@@ -44,6 +45,7 @@ public class PlayerParry : MonoBehaviour
     {
         attack = GetComponent<CombatAttack>();
         health = GetComponent<PlayerHealth>();
+        playerController = GetComponent<PlayerController>();
         bodyCollider = GetComponent<Collider2D>();
         controls = new PlayerActions();
         parryInput = controls.asset.FindAction("PlayerInput/Parry", true);
@@ -61,7 +63,7 @@ public class PlayerParry : MonoBehaviour
         if (parryInput.WasPressedThisFrame())
         {
            QueueParry();
-           CombatFeedback.PlayClip(parryClip, parryVolume);
+           //CombatFeedback.PlayClip(parryClip, parryVolume);
         } 
         Tick(Time.time);
     }
@@ -81,6 +83,8 @@ public class PlayerParry : MonoBehaviour
         activeStartsAt = now + startupFrames / CombatAttack.ReferenceFramesPerSecond;
         activeEndsAt = activeStartsAt + Mathf.Max(1, activeFrames) / CombatAttack.ReferenceFramesPerSecond;
         recoveryEndsAt = activeEndsAt + recoveryFrames / CombatAttack.ReferenceFramesPerSecond;
+        playerController.PlayParryAnimation();
+        CombatFeedback.PlayClip(parryClip, parryVolume);
         return true;
     }
     public bool TryDeflect(CombatAttack.Swing incoming, float now)
