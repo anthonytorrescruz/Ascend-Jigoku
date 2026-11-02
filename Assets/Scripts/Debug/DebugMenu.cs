@@ -1,4 +1,4 @@
-// F1: world panel, overhead stats and hitboxes. Number keys run debug actions.
+// F1: world panel, overhead stats and hitboxes. Number keys or the clickable bottom-left panel run debug actions.
 // OnEnable: DebugMenu.Watch(this, "Player", "Health", () => health);
 // OnDisable: DebugMenu.RemoveAll(this);  Actions use DebugMenu.Action(...).
 using System;
@@ -114,10 +114,50 @@ namespace AscendJigoku.Debugging
                     if (entry.Owner != null && entry.Key == key) { action = entry; matches++; }
                 if (matches > 1) { Debug.LogWarning("Debug key " + key + " is assigned more than once."); continue; }
                 if (action == null) continue;
-                try { action.Run(); }
-                catch (Exception exception) { Debug.LogException(exception); }
+                RunAction(action);
                 RefreshValues();
             }
+        }
+
+        private static void RunAction(Entry action)
+        {
+            try { action.Run(); }
+            catch (Exception exception) { Debug.LogException(exception); }
+        }
+
+        private GUIStyle buttonStyle, headerStyle;
+        private readonly List<Entry> visibleActions = new List<Entry>();
+
+        // Clickable list of every registered action, bottom-left while F1 is open.
+        private void OnGUI()
+        {
+            if (!IsOpen || Time.timeScale <= 0) return;
+            visibleActions.Clear();
+            foreach (Entry entry in entries) if (entry.Owner != null && entry.Run != null) visibleActions.Add(entry);
+            if (visibleActions.Count == 0) return;
+            visibleActions.Sort((a, b) => a.Key.CompareTo(b.Key));
+            if (buttonStyle == null)
+            {
+                buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 14, alignment = TextAnchor.MiddleLeft };
+                headerStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = Color.white } };
+            }
+            float scale = DisplayScale;
+            Matrix4x4 previous = GUI.matrix;
+            GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
+            const float width = 260, row = 26;
+            float height = 36 + visibleActions.Count * row;
+            var panel = new Rect(12, Screen.height / scale - height - 12, width, height);
+            DrawBackdrop(panel);
+            GUI.Label(new Rect(panel.x + 8, panel.y + 6, width - 16, 22), "DEBUG ACTIONS   click or 1-9", headerStyle);
+            Entry clicked = null;
+            for (int i = 0; i < visibleActions.Count; i++)
+            {
+                Entry entry = visibleActions[i];
+                if (GUI.Button(new Rect(panel.x + 8, panel.y + 32 + i * row, width - 16, row - 4), "  " + entry.Key + "    " + entry.Label, buttonStyle))
+                    clicked = entry;
+            }
+            GUI.matrix = previous;
+            if (clicked != null) { RunAction(clicked); RefreshValues(); }
         }
 
         private static bool Pressed(int number)

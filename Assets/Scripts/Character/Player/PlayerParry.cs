@@ -48,6 +48,7 @@ public class PlayerParry : MonoBehaviour
         playerController = GetComponent<PlayerController>();
         bodyCollider = GetComponent<Collider2D>();
         controls = new PlayerActions();
+        AscendJigoku.Settings.KeybindSettings.Register(controls.asset); // apply saved keybinds
         parryInput = controls.asset.FindAction("PlayerInput/Parry", true);
         CreateFeedback();
     }

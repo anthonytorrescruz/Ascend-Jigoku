@@ -98,10 +98,11 @@ public class PlayerController : MonoBehaviour
         playerSpell = GetComponent<PlayerSpell>();
         health = GetComponent<PlayerHealth>();
         controls = new PlayerActions();
+        AscendJigoku.Settings.KeybindSettings.Register(controls.asset); // apply saved keybinds
     }
     private void OnEnable()
     {
-        if(controls == null) controls = new PlayerActions();
+        if(controls == null) { controls = new PlayerActions(); AscendJigoku.Settings.KeybindSettings.Register(controls.asset); }
         controls.Enable();
         controls.PlayerInput.Jump.performed += OnJump;
         controls.PlayerInput.Dash.performed += OnDash;

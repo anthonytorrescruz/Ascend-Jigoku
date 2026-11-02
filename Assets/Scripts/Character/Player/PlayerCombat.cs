@@ -31,6 +31,7 @@ public class PlayerCombat : MonoBehaviour
         attack = GetComponent<CombatAttack>();
         parry = GetComponent<PlayerParry>();
         controls = new PlayerActions();
+        AscendJigoku.Settings.KeybindSettings.Register(controls.asset); // apply saved keybinds
     }
     private void OnEnable() => controls.Enable();
     private void OnDisable()

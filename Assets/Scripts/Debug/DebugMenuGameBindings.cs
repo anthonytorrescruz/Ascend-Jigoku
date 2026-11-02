@@ -43,12 +43,46 @@ namespace AscendJigoku.Debugging
                     DebugMenu.Action(player, "Player", "Respawn", 2, () => {
                         if (respawn != null) respawn.Respawn();
                     });
+                DebugMenu.Action(player, "Player", "Restore health", 3, () => {
+                    if (player.CurrentHealth > 0) player.Heal(player.MaxHealth);
+                });
+                var wallet = player.GetComponent<AscendJigoku.Gameplay.CurrencyWallet>();
+                if (wallet != null)
+                    DebugMenu.Action(player, "Player", "+500 coins", 7, () => {
+                        if (wallet != null && !wallet.TrySetBalance(wallet.Balance + 500)) Debug.Log("This wallet cannot be topped up.");
+                    });
+                DebugMenu.Action(player, "World", "Kill enemies nearby", 8, () => KillNearby(player));
+                // Pillar-only actions. The generator lives on the same scene as the player.
+                if (VerticalLevelGenerator.Active != null)
+                {
+                    DebugMenu.Action(player, "World", "Teleport: next checkpoint", 4, () => Log(VerticalLevelGenerator.Active?.DebugTeleportToCheckpoint(+1)));
+                    DebugMenu.Action(player, "World", "Teleport: previous checkpoint", 5, () => Log(VerticalLevelGenerator.Active?.DebugTeleportToCheckpoint(-1)));
+                    DebugMenu.Action(player, "World", "Teleport: up one chunk", 6, () => {
+                        var world = VerticalLevelGenerator.Active;
+                        if (world != null) Log(world.DebugTeleportRows(world.Metrics.RowsPerChunk));
+                    });
+                    DebugMenu.Action(player, "World", "Defeat boss / open route", 9, () => Log(VerticalLevelGenerator.Active?.DebugDefeatBoss()));
+                }
             }
             foreach (EnemyHealth enemy in FindObjectsByType<EnemyHealth>())
             {
                 if (!enemy.isActiveAndEnabled || !enemies.Add(enemy)) continue;
 
             }
+        }
+
+        private static void Log(string message) { if (!string.IsNullOrEmpty(message)) Debug.Log("[Debug] " + message); }
+
+        private static void KillNearby(PlayerHealth player)
+        {
+            int killed = 0;
+            foreach (EnemyHealth enemy in FindObjectsByType<EnemyHealth>())
+            {
+                if (enemy == null || enemy.CurrentHealth <= 0 || !enemy.DamageEnabled || enemy.GetComponent<FireWormBoss>() != null) continue;
+                if (((Vector2)(enemy.transform.position - player.transform.position)).sqrMagnitude > 30 * 30) continue;
+                enemy.TakeDamage(enemy.MaxHealth * 10); killed++;
+            }
+            Log("Killed " + killed + " enemies within 30 units (the boss is skipped; use Defeat boss).");
         }
 
         private static string AttackState(CombatAttack attack)

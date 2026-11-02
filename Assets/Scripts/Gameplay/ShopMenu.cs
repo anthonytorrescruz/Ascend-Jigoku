@@ -29,7 +29,7 @@ namespace AscendJigoku.Gameplay
         private void Awake()
         {
             controlLock = GetComponent<PlayerControlLock>(); upgrades = GetComponent<PlayerUpgrades>();
-            interact = new InputAction("TalkShop", InputActionType.Button, "<Keyboard>/e"); interact.AddBinding("<Gamepad>/buttonNorth");
+            interact = AscendJigoku.Settings.KeybindSettings.CreateInteractAction("TalkShop"); // player-chosen key + Xbox Y
             close = new InputAction("CloseShop", InputActionType.Button, "<Keyboard>/escape"); close.AddBinding("<Gamepad>/buttonEast");
             shopVoice = gameObject.AddComponent<AudioSource>(); shopVoice.playOnAwake = false; shopVoice.spatialBlend = 0;
         }
@@ -40,7 +40,7 @@ namespace AscendJigoku.Gameplay
         }
         private void OnEnable() { interact.Enable(); close.Enable(); }
         private void OnDisable() { interact.Disable(); close.Disable(); Close(); }
-        private void OnDestroy() { interact.Dispose(); close.Dispose(); if (root != null) Destroy(root); }
+        private void OnDestroy() { AscendJigoku.Settings.KeybindSettings.ReleaseInteractAction(interact); interact.Dispose(); close.Dispose(); if (root != null) Destroy(root); }
         private void Update()
         {
             if (panel == null) return;
@@ -73,7 +73,7 @@ namespace AscendJigoku.Gameplay
             if (shop.catalog.openSound != null)
             {
                 shopVoice.Stop(); shopVoice.clip = shop.catalog.openSound;
-                shopVoice.volume = shop.catalog.openSoundVolume; shopVoice.pitch = shop.catalog.openSoundPitch; shopVoice.Play();
+                shopVoice.volume = shop.catalog.openSoundVolume * AscendJigoku.Settings.GameSettings.SfxVolume; shopVoice.pitch = shop.catalog.openSoundPitch; shopVoice.Play();
             }
             Refresh(); EventSystem.current.SetSelectedGameObject(buttons[0].gameObject); return true;
         }
@@ -91,7 +91,11 @@ namespace AscendJigoku.Gameplay
             if (!IsOpen || index < 0 || index >= current.catalog.offers.Length) return false;
             bool bought = upgrades.TryBuy(current.catalog.offers[index], wallet, out string result);
             message.text = result;
-            if (bought) CombatFeedback.PlayClip(current.catalog.purchaseSound, 0.4f);
+            if (bought)
+            {
+                CombatFeedback.PlayClip(current.catalog.purchaseSound, 0.4f);
+                if (VerticalLevelGenerator.Active != null) VerticalLevelGenerator.Active.SaveAfterPurchase(); // AJ-75 autosave
+            }
             Refresh(); return bought;
         }
         private void Refresh()
@@ -104,7 +108,7 @@ namespace AscendJigoku.Gameplay
                 buttons[i].GetComponentInChildren<Text>().text = $"{offer.title}   {(maxed ? "MAX" : offer.Price(upgrades.Count(offer.kind)).ToString() + " coins")}\n{offer.description}";
                 // Keep disabled purchases selectable so controller users can read the reason.
             }
-            stats.text = $"Health: {GetComponent<PlayerHealth>().CurrentHealth}/{GetComponent<PlayerHealth>().MaxHealth}    Damage: {GetComponent<PlayerCombat>().AttackDamage}    Jumps: {GetComponent<PlayerController>().MaxJumps}\nPurchases and test coins reset when the scene reloads.";
+            stats.text = $"Health: {GetComponent<PlayerHealth>().CurrentHealth}/{GetComponent<PlayerHealth>().MaxHealth}    Damage: {GetComponent<PlayerCombat>().AttackDamage}    Jumps: {GetComponent<PlayerController>().MaxJumps}\n{(VerticalLevelGenerator.Active != null ? "Purchases and coins are saved here. Death returns you to your last save." : "Purchases and test coins reset when the scene reloads.")}";
         }
         private void CreateUI()
         {
@@ -115,7 +119,7 @@ namespace AscendJigoku.Gameplay
             prompt = Label(root.transform, "Nearby shop prompt", new Vector2(0, -300), new Vector2(1300, 60), 28);
             panel = new GameObject("Shop", typeof(RectTransform), typeof(Image)); panel.transform.SetParent(root.transform, false);
             var rect = (RectTransform)panel.transform; rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
-            panel.GetComponent<Image>().color = new Color(0.025f, 0.035f, 0.055f, 0.98f);
+            var backdrop = AscendJigoku.UI.MenuStyle.Background; backdrop.a = 0.98f; panel.GetComponent<Image>().color = backdrop;
             title = Label(panel.transform, "Merchant", new Vector2(0, 355), new Vector2(1300, 70), 45); title.fontStyle = FontStyle.Bold;
             greeting = Label(panel.transform, "Greeting", new Vector2(0, 265), new Vector2(1300, 90), 25);
             balance = Label(panel.transform, "Wallet", new Vector2(0, 190), new Vector2(1300, 60), 28);
@@ -132,8 +136,8 @@ namespace AscendJigoku.Gameplay
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(ShopCancelHandler)); go.transform.SetParent(parent, false);
             var rect = (RectTransform)go.transform; rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f); rect.anchoredPosition = position; rect.sizeDelta = size;
-            go.GetComponent<Image>().color = new Color(0.16f, 0.2f, 0.27f); var button = go.GetComponent<Button>();
-            var colors = button.colors; colors.selectedColor = new Color(0.5f, 0.7f, 1); colors.highlightedColor = colors.selectedColor; button.colors = colors;
+            go.GetComponent<Image>().color = Color.white; var button = go.GetComponent<Button>();
+            button.colors = AscendJigoku.UI.MenuStyle.ButtonColors; // shared menu palette (AJ-66)
             go.GetComponent<ShopCancelHandler>().shop = this; button.onClick.AddListener(action);
             Label(go.transform, "Text", Vector2.zero, size - new Vector2(15, 5), 24); return button;
         }

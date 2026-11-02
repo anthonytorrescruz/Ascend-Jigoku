@@ -59,6 +59,7 @@ public sealed class PlayerSpell : MonoBehaviour
         controller = GetComponent<PlayerController>(); health = GetComponent<PlayerHealth>();
         combat = GetComponent<PlayerCombat>(); parry = GetComponent<PlayerParry>(); body = GetComponent<Collider2D>();
         controls = new PlayerActions();
+        AscendJigoku.Settings.KeybindSettings.Register(controls.asset); // apply saved keybinds
         castInput = controls.asset.FindAction("PlayerInput/CastOrHeal", true);
         focusVisual = new GameObject("Heal Focus").AddComponent<SpriteRenderer>();
         focusVisual.transform.SetParent(transform, false);

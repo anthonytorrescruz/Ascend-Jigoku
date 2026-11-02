@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
+using AscendJigoku.Settings;
 
 namespace AscendJigoku.Gameplay
 {
@@ -14,15 +15,17 @@ namespace AscendJigoku.Gameplay
         private string controlsText;
         private bool controlsWereController;
         private readonly Dictionary<string, string> labels = new Dictionary<string, string>();
-        private void Awake() => bindings = new PlayerActions();
+        private int labelsVersion = -1;
+        private void Awake() { bindings = new PlayerActions(); KeybindSettings.Register(bindings.asset); }
         private void OnDestroy() => bindings?.Dispose();
-        public string Interact => UsesController ? "Y" : "E";
+        public string Interact => UsesController ? "Y" : KeybindSettings.InteractLabel;
         public string Confirm => UsesController ? "A" : "Enter / Space";
         public string Back => UsesController ? "B" : "Esc";
         public string Controls
         {
             get
             {
+                SyncLabels();
                 if (controlsText == null || controlsWereController != UsesController)
                 {
                     controlsWereController = UsesController;
@@ -33,10 +36,17 @@ namespace AscendJigoku.Gameplay
         }
         public string Button(string action)
         {
-            if (bindings == null) bindings = new PlayerActions();
+            if (bindings == null) { bindings = new PlayerActions(); KeybindSettings.Register(bindings.asset); }
+            SyncLabels();
             string key = (UsesController ? "pad:" : "key:") + action;
             if (labels.TryGetValue(key, out string label)) return label;
             label = ReadButton(action); labels[key] = label; return label;
+        }
+        // Rebinding in Settings bumps the version; drop cached key names so prompts show the new keys.
+        private void SyncLabels()
+        {
+            if (labelsVersion == KeybindSettings.Version) return;
+            labelsVersion = KeybindSettings.Version; labels.Clear(); controlsText = null;
         }
         private string ReadButton(string action)
         {

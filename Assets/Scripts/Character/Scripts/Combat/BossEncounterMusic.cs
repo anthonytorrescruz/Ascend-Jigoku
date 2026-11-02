@@ -41,7 +41,7 @@ public sealed class BossEncounterMusic : MonoBehaviour
         }
         if (!started || media == null) return;
         faded = Mathf.MoveTowards(faded, finished ? 0 : 1, Time.unscaledDeltaTime / Mathf.Max(.1f, media.musicFadeSeconds));
-        source.volume = media.musicVolume * faded;
+        source.volume = media.musicVolume * faded * AscendJigoku.Settings.GameSettings.MusicVolume;
         if (finished && faded <= 0) Stop();
     }
     private void Stop()

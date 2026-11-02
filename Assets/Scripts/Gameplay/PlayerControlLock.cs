@@ -39,7 +39,8 @@ namespace AscendJigoku.Gameplay
         private static bool GameplayButtonsHeld()
         {
             var k = Keyboard.current;
-            if (k != null && (k.spaceKey.isPressed || k.jKey.isPressed || k.lKey.isPressed || k.semicolonKey.isPressed)) return true;
+            // Rebound gameplay keys plus Space (UI confirm).
+            if (AscendJigoku.Settings.KeybindSettings.AnyGameplayKeyHeld() || (k != null && k.spaceKey.isPressed)) return true;
             foreach (var g in Gamepad.all)
                 if (g.buttonSouth.isPressed || g.buttonWest.isPressed || g.buttonNorth.isPressed
                     || g.buttonEast.isPressed || g.leftShoulder.isPressed || g.rightShoulder.isPressed) return true;

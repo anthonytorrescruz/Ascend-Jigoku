@@ -25,6 +25,7 @@ namespace AscendJigoku.UI
             }
             starting = true;
             VerticalLevelGenerator.BeginNewRun();
+            AscendJigoku.Gameplay.RunSave.Delete(); // START always replaces the saved run
             SceneManager.LoadScene(gameplayScene);
         }
 

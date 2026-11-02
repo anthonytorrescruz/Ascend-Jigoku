@@ -1,3 +1,5 @@
+using AscendJigoku.Gameplay;
+using AscendJigoku.Settings;
 using UnityEngine;
 
 // Optional clips replace the small placeholder sounds. Set volume to zero to mute them.
@@ -26,26 +28,37 @@ public sealed class CombatFeedback : MonoBehaviour
     {
         Flash(Color.white, 0.08f);
         Play(hitSound, ref defaultHit, 150, 60, 0.07f);
+        // Health is reduced before Hit() runs, so zero here means this was the killing blow.
+        if (health != null) EncounterFeedback.OnPlayerHit(health.CurrentHealth <= 0);
+        else
+        {
+            var enemy = GetComponent<EnemyHealth>();
+            EncounterFeedback.OnEnemyHit(this, enemy != null && enemy.CurrentHealth <= 0);
+        }
     }
     public void Parry()
     {
         Flash(new Color(0.5f, 1, 0.8f), 0.12f);
         Play(parrySound, ref defaultParry, 550, 1100, 0.1f);
+        EncounterFeedback.OnParry();
     }
     public void Pogo()
     {
         Flash(new Color(0.6f, 0.85f, 1), 0.08f);
         Play(pogoSound, ref defaultPogo, 250, 650, 0.08f);
+        EncounterFeedback.OnPogo();
     }
     public void Windup(float seconds)
     {
         windupStart = Time.time;
         windupUntil = Time.time + seconds;
+        if (health == null) TelegraphMarker.Show(gameObject, seconds);
     }
-    public void CancelWindup() => windupUntil = 0;
+    public void CancelWindup() { windupUntil = 0; TelegraphMarker.Hide(gameObject); }
     public void ResetFeedback()
     {
         flashUntil = windupUntil = 0;
+        TelegraphMarker.Hide(gameObject);
         if (body != null) body.color = originalColor;
     }
     private void Flash(Color color, float seconds)
@@ -56,14 +69,15 @@ public sealed class CombatFeedback : MonoBehaviour
     private void LateUpdate()
     {
         if (body == null) return;
-        if (Time.time < flashUntil) body.color = flashColor;
+        bool gentle = GameSettings.ReduceFlashing;
+        if (Time.time < flashUntil) body.color = gentle ? Color.Lerp(originalColor, flashColor, 0.45f) : flashColor;
         else if (Time.time < windupUntil)
         {
             float progress = Mathf.InverseLerp(windupStart, windupUntil, Time.time);
             body.color = Color.Lerp(originalColor, new Color(1, 0.65f, 0.15f), 0.35f + progress * 0.65f);
         }
         else if (health != null && health.ProtectionRemaining > 0)
-            body.color = Color.Lerp(originalColor, Color.white, 0.35f + 0.35f * Mathf.Sin(Time.time * 60));
+            body.color = Color.Lerp(originalColor, Color.white, gentle ? 0.35f : 0.35f + 0.35f * Mathf.Sin(Time.time * 60));
         else if (parry != null && parry.Phase == ParryPhase.Active)
             body.color = Color.Lerp(originalColor, Color.cyan, 0.65f);
         else body.color = originalColor;
@@ -102,7 +116,8 @@ public sealed class CombatFeedback : MonoBehaviour
             audioSource.playOnAwake = false;
             audioSource.spatialBlend = 0;
         }
-        audioSource.PlayOneShot(clip, Mathf.Clamp01(clipVolume));
+        float scaled = Mathf.Clamp01(clipVolume) * GameSettings.SfxVolume;
+        if (scaled > 0) audioSource.PlayOneShot(clip, scaled);
     }
     private void OnDisable() => ResetFeedback();
 }

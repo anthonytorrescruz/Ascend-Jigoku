@@ -18,7 +18,15 @@ public class CameraFollow : MonoBehaviour
 
     private void Awake() => view = GetComponent<Camera>();
     private void Start() => SnapToTarget();
-    private void LateUpdate() => Follow(Time.deltaTime);
+    private Vector3 appliedShake;
+    private void LateUpdate()
+    {
+        // Follow from the unshaken position, then layer the current shake on top.
+        transform.position -= appliedShake;
+        Follow(Time.deltaTime);
+        appliedShake = AscendJigoku.Gameplay.EncounterFeedback.CameraOffset;
+        transform.position += appliedShake;
+    }
     private bool FindTarget()
     {
         if (player == null)
@@ -40,6 +48,7 @@ public class CameraFollow : MonoBehaviour
     public void SnapToTarget()
     {
         if (!FindTarget()) return;
+        appliedShake = Vector3.zero;
         Vector3 focus = PlayerBounds.center + (Vector3)lookOffset;
         transform.position = new Vector3(focus.x, focus.y, transform.position.z);
         Constrain(PlayerBounds);

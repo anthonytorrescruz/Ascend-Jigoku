@@ -43,7 +43,7 @@ public sealed class FireWormPresentation : MonoBehaviour
         else { hurtStarted = Time.time; hurtUntil = Time.time + (presentation != null && presentation.hit != null ? Mathf.Max(.12f, presentation.hit.Length / Mathf.Max(1, presentation.framesPerSecond)) : .12f); Play(presentation != null ? presentation.hitSound : null); }
     }
     private void Play(AudioClip clip)
-    { if (presentation != null && clip != null) audioSource.PlayOneShot(clip, presentation.volume); }
+    { if (presentation != null && clip != null) audioSource.PlayOneShot(clip, presentation.volume * AscendJigoku.Settings.GameSettings.SfxVolume); }
     private void LateUpdate()
     {
         if (presentation == null) return;

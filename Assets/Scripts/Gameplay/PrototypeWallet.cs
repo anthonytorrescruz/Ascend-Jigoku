@@ -13,5 +13,6 @@ namespace AscendJigoku.Gameplay
             if (amount < 0 || amount > Balance) return false;
             testCoins -= amount; return true;
         }
+        public override bool TrySetBalance(int amount) { testCoins = Mathf.Max(0, amount); return true; }
     }
 }
