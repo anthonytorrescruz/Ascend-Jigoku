@@ -32,6 +32,7 @@ public class PlayerController : MonoBehaviour
     private Collider2D bodyShape;
     private PlayerSpell playerSpell;
     private PlayerHealth health;
+    private SpriteRenderer sprite;
     private bool IsDead => health != null && health.CurrentHealth <= 0;
     private float normalGravity;
     private readonly List<ContactPoint2D> groundContacts = new List<ContactPoint2D>();
@@ -83,12 +84,14 @@ public class PlayerController : MonoBehaviour
     static readonly int IdleStateHash  = Animator.StringToHash("Idle");
     static readonly int JumpStartStateHash = Animator.StringToHash("Jump-Start");
     static readonly int WallJumpStateHash = Animator.StringToHash("Wall Jump");
+    
 
     
 
     private void Awake()
     {
         animator = GetComponentInChildren<Animator>();
+        sprite = GetComponent<SpriteRenderer>();
         if (rb == null) rb = GetComponent<Rigidbody2D>();
         normalGravity = rb.gravityScale;
         foreach (var c in GetComponents<Collider2D>())
@@ -147,6 +150,13 @@ public class PlayerController : MonoBehaviour
         HandleJump();
         HandleWallSlide();
         
+    }
+
+    private void LateUpdate()
+    {
+        if (sprite == null || animator == null) return;
+        var state = animator.GetCurrentAnimatorStateInfo(0);
+        sprite.flipX = state.IsName("Wall Contact") || state.IsName("Wall Slide");
     }
     private void CheckWall()
     {

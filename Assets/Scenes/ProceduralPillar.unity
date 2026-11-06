@@ -547,6 +547,7 @@ MonoBehaviour:
   deathSoundVolume: 1
   showDeathScreen: 1
   skipDeathScreenInEditor: 0
+  deathAnimationSeconds: 0.8
 --- !u!114 &1309939426
 MonoBehaviour:
   m_ObjectHideFlags: 0
