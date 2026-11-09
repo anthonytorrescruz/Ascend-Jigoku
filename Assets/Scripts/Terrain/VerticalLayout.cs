@@ -79,8 +79,10 @@ public static class VerticalLayout
             EnemyIndex = -1, MarkerIndex = markerIndex, EnemySide = random.Next(2) == 0 ? -1 : 1
         };
         // Fixed eligible rows make spawn choices independent of which chunks were visited first.
-        if (!wide && row >= settings.firstEnemyRow && row % Mathf.Max(1, settings.enemyRowSpacing) == 0
-            && random.NextDouble() < settings.enemyChance)
+        bool checkpoint = markerIndex >= 0 && settings.heightMarkers[markerIndex].checkpoint;
+        if (settings.enemyOnEveryPlatform ? row > 0 && !checkpoint
+            : !wide && row >= settings.firstEnemyRow && row % Mathf.Max(1, settings.enemyRowSpacing) == 0
+                && random.NextDouble() < settings.enemyChance)
             landing.EnemyIndex = PickEnemy(settings, row, random);
         return landing;
     }

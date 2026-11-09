@@ -39,6 +39,8 @@ public sealed class VerticalGenerationSettings : ScriptableObject
     public AscendJigoku.Gameplay.Shopkeeper checkpointShopPrefab;
     [Min(0)] public float checkpointShopOffset = 2;
     [Header("Enemies")]
+    [Tooltip("One enemy on every climbing ledge. Starting floor, checkpoint shops and the boss arena remain dedicated spaces.")]
+    public bool enemyOnEveryPlatform;
     [Range(0, 1)] public float enemyChance = 0.45f;
     [Min(1)] public int firstEnemyRow = 5;
     [Min(1)] public int enemyRowSpacing = 3;

@@ -673,12 +673,13 @@ MonoBehaviour:
   cooldownSeconds: 0.3
   projectileSpeed: 24
   projectileLifetime: 0.8
-  projectileSize: {x: 0.65, y: 0.35}
+  projectileSize: {x: 0.55, y: 0.95}
   muzzleClearance: 0.05
   maxProjectiles: 12
-  projectileColor: {r: 0.5, g: 0.9, b: 1, a: 1}
-  focusColor: {r: 0.3, g: 0.9, b: 1, a: 0.3}
-  healColor: {r: 0.3, g: 1, b: 0.4, a: 0.65}
+  spellColor: {r: 0.78, g: 0.8, b: 0.83, a: 1}
+  projectileUnfoldSeconds: 0.1
+  healingDiameterMultiplier: 1.3
+  healFlashSeconds: 0.25
 --- !u!82 &1309939431
 AudioSource:
   m_ObjectHideFlags: 0

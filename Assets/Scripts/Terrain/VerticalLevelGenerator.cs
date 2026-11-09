@@ -76,7 +76,7 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
             landing.Shape = VerticalLayout.RockShape.Shelf; landing.EnemyIndex = -1; landing.MarkerIndex = -1;
             landing.Color = new Color(0.35f, 0.35f, 0.39f);
         }
-        else if (bossRow >= 0 && Mathf.Abs(row - bossRow) <= 2) landing.EnemyIndex = -1;
+        else if (!settings.enemyOnEveryPlatform && bossRow >= 0 && Mathf.Abs(row - bossRow) <= 2) landing.EnemyIndex = -1;
         return landing;
     }
     public static void BeginNewRun() { run = null; pendingContinue = null; }
@@ -400,7 +400,10 @@ public sealed class VerticalLevelGenerator : MonoBehaviour
         float half = shape.bounds.extents.x, offset = landing.Width * 0.5f - half - 0.4f;
         var profile = enemy.GetComponent<EnemyCombat>()?.Definition;
         bool flying = profile != null && profile.movement == EnemyMovement.Flying;
-        if (offset < Mathf.Max(settings.clearLandingHalfWidth, playerShape.bounds.extents.x + 0.5f) + half + 0.25f)
+        // Dense encounters can share the landing space, but must still fit fully on the ledge.
+        float clearance = settings.enemyOnEveryPlatform ? half + .1f
+            : Mathf.Max(settings.clearLandingHalfWidth, playerShape.bounds.extents.x + .5f) + half + .25f;
+        if (offset < clearance)
         { enemy.SetActive(false); Destroy(enemy); return; }
         Vector3 position = enemy.transform.position;
         position.x += landing.EnemySide * offset;

@@ -11,26 +11,32 @@ public sealed class PlayerProjectile : MonoBehaviour
     private SpriteRenderer visual;
     private Vector2 direction, size;
     private float speed, remaining;
+    private float lifetime, unfoldSeconds;
     private int damage;
     private LayerMask enemyLayers, terrainLayers;
     public void Configure(Action<PlayerProjectile> onRecycle)
     {
         recycle = onRecycle;
         visual = gameObject.AddComponent<SpriteRenderer>();
-        visual.sprite = PlayerSpell.Square;
+        visual.sprite = SpellShapes.Crescent;
         gameObject.SetActive(false);
     }
     public void Launch(Transform source, Vector2 position, Vector2 heading, float muzzleDistance, Vector2 boxSize,
-        float unitsPerSecond, float seconds, int hitDamage, LayerMask targets, LayerMask terrain, Color color, SpriteRenderer sourceRenderer)
+        float unitsPerSecond, float seconds, int hitDamage, LayerMask targets, LayerMask terrain, Color color, SpriteRenderer sourceRenderer,
+        float unfoldDuration = .1f)
     {
         owner = source; direction = heading; size = boxSize;
         speed = Mathf.Max(0.1f, unitsPerSecond); remaining = Mathf.Max(0.01f, seconds);
+        lifetime = remaining; unfoldSeconds = Mathf.Max(.01f, unfoldDuration);
         damage = hitDamage; enemyLayers = targets; terrainLayers = terrain;
         transform.position = new Vector3(position.x, position.y, source.position.z);
         transform.localScale = new Vector3(size.x, size.y, 1);
+        transform.rotation = Quaternion.identity;
+        visual.flipX = direction.x < 0;
         visual.color = color;
         if (sourceRenderer != null) { visual.sortingLayerID = sourceRenderer.sortingLayerID; visual.sortingOrder = sourceRenderer.sortingOrder + 2; }
         gameObject.SetActive(true);
+        Animate();
         Move(Mathf.Max(0, muzzleDistance));
     }
     private void Update() => Tick(Time.deltaTime);
@@ -41,7 +47,16 @@ public sealed class PlayerProjectile : MonoBehaviour
         float step = Mathf.Min(seconds, remaining);
         Move(speed * step);
         remaining -= step;
+        Animate();
         if (gameObject.activeSelf && remaining <= 0) Despawn();
+    }
+    private void Animate()
+    {
+        // Only the art unfolds; the swept damage box remains predictable in both directions.
+        float opening = Mathf.SmoothStep(0, 1, (lifetime - remaining) / unfoldSeconds);
+        transform.localScale = new Vector3(size.x * Mathf.Lerp(.45f, 1, opening), size.y * Mathf.Lerp(.65f, 1, opening), 1);
+        float fade = Mathf.Clamp01(remaining / .12f);
+        var color = visual.color; color.a = fade; visual.color = color;
     }
     private void Move(float distance)
     {
