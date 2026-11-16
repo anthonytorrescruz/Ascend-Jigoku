@@ -5,6 +5,7 @@ using UnityEngine;
 public sealed class CombatSettings : ScriptableObject
 {
     [Header("Player")]
+    [Min(0)] public int playerStartupFrames = 0;
     public Vector2 playerAttackSize = new Vector2(2, 2);
     [Min(1)] public int playerActiveFrames = 6;
     [Min(0)] public int playerRecoveryFrames = 8;

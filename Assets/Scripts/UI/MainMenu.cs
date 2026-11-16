@@ -15,7 +15,12 @@ namespace AscendJigoku.UI
             Cursor.visible = true;
         }
 
-        public void StartGame()
+        public void StartGame() => Begin(false);
+
+        // Replays the opening and tutorial, then starts a new run.
+        public void StartTutorial() => Begin(true);
+
+        private void Begin(bool tutorial)
         {
             if (starting) return;
             if (!Application.CanStreamedLevelBeLoaded(gameplayScene))
@@ -25,6 +30,7 @@ namespace AscendJigoku.UI
             }
             starting = true;
             VerticalLevelGenerator.BeginNewRun();
+            if (tutorial) AscendJigoku.Gameplay.Tutorial.ArmReplay(); else AscendJigoku.Gameplay.Tutorial.ArmForNewRun(); // first run only
             AscendJigoku.Gameplay.RunSave.Delete(); // START always replaces the saved run
             SceneManager.LoadScene(gameplayScene);
         }

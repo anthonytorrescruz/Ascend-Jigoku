@@ -1,0 +1,6 @@
+Undead Executioner by Kronovi-
+https://darkpixel-kronovi.itch.io/undead-executioner
+Imported from the user-supplied Undead executioner.zip on 2026-11-16.
+Creator permits editing and commercial/non-commercial game use; raw asset redistribution/resale is restricted. Credit appreciated.
+All source PNG sheets and four layered Aseprite documents are retained unchanged.
+Runtime sequences use all nine animation sheets; intentional blank death frames are retained. Unused blank packing cells are excluded.

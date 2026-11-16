@@ -139,6 +139,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
   maxHealth: 3
+  despawnDelay: 0
 --- !u!114 &8003463621393777042
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -177,9 +178,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8ecec6f43c11084cb21fae1628adfac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatAttack
-  settings: {fileID: 11400000, guid: 5a8a2af188744461a110357d1e2321bb, type: 2}
   team: 1
   showAttack: 1
+  settings: {fileID: 11400000, guid: 5a8a2af188744461a110357d1e2321bb, type: 2}
 --- !u!114 &3665810249675724327
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -192,6 +193,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e5d3895ab6074b49809c074e69e6f60, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyCombat
+  definition: {fileID: 0}
   targetPlayer: {fileID: 0}
   detectionRadius: 2
   detectionIntervalFrames: 2
@@ -206,6 +208,8 @@ MonoBehaviour:
   playerLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  EattackClip: {fileID: 8300000, guid: 626156e5fdfd08e418bd258580fca98d, type: 3}
+  EattackVolume: 1
 --- !u!60 &8686838433440211923
 PolygonCollider2D:
   m_ObjectHideFlags: 0

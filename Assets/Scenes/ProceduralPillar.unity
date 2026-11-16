@@ -427,9 +427,10 @@ MonoBehaviour:
   wallJumpTime: 0.2
   wallSlideSpeed: 2
   isTouchingWall: 0
-  jumpVolume: 0.27
+  attackFacingExtra: 0
+  jumpVolume: 0.59
   dashVolume: 0.27
-  jumpClip: {fileID: 8300000, guid: c3f8985f439d56544b84ee3f38861434, type: 3}
+  jumpClip: {fileID: 8300000, guid: 7a221c3aeafc46642a28489183484026, type: 3}
   dashClip: {fileID: 8300000, guid: 800b7235b475a32448d6054cb38bc726, type: 3}
 --- !u!4 &1309939420
 Transform:
@@ -588,7 +589,7 @@ MonoBehaviour:
   - m_PersistentCalls:
       m_Calls: []
     m_ActionId: af82431c-b81e-4b3f-a782-8ecd345b5a28
-    m_ActionName: 'Player/Move[/Keyboard/a,/Keyboard/d]'
+    m_ActionName: Player/Move[/Keyboard/a,/Keyboard/d]
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: PlayerInput
@@ -693,13 +694,13 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 5fe5902d30e0c3b49b50607d78d2eb8e, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.08
+  m_Volume: 0.05
   m_Pitch: 1
   Loop: 1
   Mute: 0
   Spatialize: 0
   SpatializePostEffects: 0
-  Priority: 128
+  Priority: 60
   DopplerLevel: 1
   MinDistance: 1
   MaxDistance: 500
@@ -962,7 +963,7 @@ MonoBehaviour:
     version: 2
     RefIds:
     - rid: -2
-      type: {class: , ns: , asm: }
+      type: {class: '', ns: '', asm: ''}
     - rid: 3031359551366758414
       type: {class: Light2DProviderSources, ns: UnityEngine.Rendering.Universal, asm: Unity.RenderPipelines.Universal.2D.Runtime}
       data:
@@ -972,7 +973,8 @@ MonoBehaviour:
         m_Provider2DCache:
           rid: 3031359551366758415
     - rid: 3031359551366758415
-      type: {class: 'Provider2DCache`1[[UnityEngine.Rendering.Universal.Light2DProvider, Unity.RenderPipelines.Universal.2D.Runtime]]', ns: UnityEngine.Rendering.Universal, asm: Unity.RenderPipelines.Universal.2D.Runtime}
+      type: {class: 'Provider2DCache`1[[UnityEngine.Rendering.Universal.Light2DProvider,
+          Unity.RenderPipelines.Universal.2D.Runtime]]', ns: UnityEngine.Rendering.Universal, asm: Unity.RenderPipelines.Universal.2D.Runtime}
       data:
         m_Cache: []
 --- !u!4 &2107812315

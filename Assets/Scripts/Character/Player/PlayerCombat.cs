@@ -10,12 +10,15 @@ public class PlayerCombat : MonoBehaviour
     private PlayerController playerController;
     private PlayerHealth health;
     private PlayerActions controls;
+    private InputAction abilityInput, swapInput;
+    private PlayerWeapons weapons;
     private CombatAttack attack;
     private PlayerParry parry;
     private float nextAttackAt;
     private float bufferedUntil = float.NegativeInfinity;
     private CombatDirection bufferedDirection;
     public CombatAttack Attack => attack;
+    public PlayerWeapons Weapons => weapons;
     public int AttackDamage => Mathf.Max(0, attackDamage);
     public void IncreaseAttackDamage(int amount) => attackDamage = Mathf.Clamp(attackDamage + Mathf.Max(0, amount), 0, 99);
     public LayerMask EnemyLayers => enemyLayers;
@@ -30,18 +33,29 @@ public class PlayerCombat : MonoBehaviour
         health = GetComponent<PlayerHealth>();
         attack = GetComponent<CombatAttack>();
         parry = GetComponent<PlayerParry>();
+        weapons = GetComponent<PlayerWeapons>();
+        if (weapons == null) weapons = gameObject.AddComponent<PlayerWeapons>();
+        abilityInput = AscendJigoku.Settings.KeybindSettings.CreateExtraAction("ability");
+        swapInput = AscendJigoku.Settings.KeybindSettings.CreateExtraAction("swap");
         controls = new PlayerActions();
         AscendJigoku.Settings.KeybindSettings.Register(controls.asset); // apply saved keybinds
     }
-    private void OnEnable() => controls.Enable();
+    private void OnEnable() { controls.Enable(); abilityInput.Enable(); swapInput.Enable(); }
     private void OnDisable()
     {
-        controls.Disable();
+        controls.Disable(); abilityInput.Disable(); swapInput.Disable();
         Cancel();
     }
-    private void OnDestroy() => controls.Dispose();
+    private void OnDestroy()
+    {
+        AscendJigoku.Settings.KeybindSettings.ReleaseExtraAction("ability", abilityInput);
+        AscendJigoku.Settings.KeybindSettings.ReleaseExtraAction("swap", swapInput);
+        abilityInput.Dispose(); swapInput.Dispose(); controls.Dispose();
+    }
     private void Update()
     {
+        if (swapInput.WasPressedThisFrame()) weapons.Swap();
+        if (abilityInput.WasPressedThisFrame()) weapons.TryAbility();
         if (controls.PlayerInput.Attack.WasPressedThisFrame()){
             QueueAttack(ReadDirection());
             return;
@@ -60,25 +74,31 @@ public class PlayerCombat : MonoBehaviour
             bufferedUntil = float.NegativeInfinity;
     }
     public bool TryAttack() => TryAttack(ReadDirection(), Time.time);
+    // True when nothing blocks starting a new attack, ability or weapon swap.
+    public bool CanAct(float now) => isActiveAndEnabled && (health == null || health.CurrentHealth > 0)
+        && now >= nextAttackAt && !(attack.CurrentSwing != null && attack.CurrentSwing.IsActive(now))
+        && parry.PhaseAt(now) == ParryPhase.Idle;
+    public void HoldAttacks(float until) => nextAttackAt = Mathf.Max(nextAttackAt, until);
     private bool TryAttack(CombatDirection direction, float now)
     {
-        if (!isActiveAndEnabled || (health != null && health.CurrentHealth <= 0)
-            || now < nextAttackAt || (attack.CurrentSwing != null && attack.CurrentSwing.IsActive(now))
-            || parry.PhaseAt(now) != ParryPhase.Idle) return false;
+        if (!CanAct(now)) return false;
 
         if (direction == CombatDirection.Down && playerController.IsGrounded) return false;
         GetAttackGeometry(direction, out Vector2 offset, out Vector2 size);
 
-        var swing = attack.BeginAttack(direction, offset, size, attackDamage,
-            attack.Settings.playerActiveFrames, enemyLayers, now);
+        var weapon = weapons.Current;
+        var swing = attack.BeginAttack(direction, offset, size, attackDamage + weapon.BonusDamage,
+            attack.Settings.playerActiveFrames + weapon.ExtraActiveFrames, enemyLayers, now, weapon.ExtraStartupFrames);
 
         if (swing == null) return false;
+        swing.Knockback = weapon.Knockback;
 
         //if (direction == CombatDirection.Left || direction == CombatDirection.Right)
         if (direction != CombatDirection.Up)
             playerController.PlayAttackAnimation();
         CombatFeedback.PlayClip(attackClip, attackVolume);
-        nextAttackAt = swing.EndsAt + Mathf.Max(0, attack.Settings.playerRecoveryFrames) / CombatAttack.ReferenceFramesPerSecond;
+        nextAttackAt = swing.EndsAt + Mathf.Max(0, attack.Settings.playerRecoveryFrames) / CombatAttack.ReferenceFramesPerSecond
+            + weapon.ExtraRecoveryFrames / CombatAttack.ReferenceFramesPerSecond;
         return true;
     }
     private CombatDirection ReadDirection()
@@ -98,7 +118,8 @@ public class PlayerCombat : MonoBehaviour
     {
         var source = attack != null ? attack : GetComponent<CombatAttack>();
         size = source.Settings.playerAttackSize;
-        size = new Vector2(Mathf.Max(0.01f, size.x), Mathf.Max(0.01f, size.y));
+        var scale = (weapons != null ? weapons.Current : Weapon.Katana).SizeScale;
+        size = new Vector2(Mathf.Max(0.01f, size.x * scale.x), Mathf.Max(0.01f, size.y * scale.y));
         offset = source.GetAttackOffset(direction, size);
     }
 

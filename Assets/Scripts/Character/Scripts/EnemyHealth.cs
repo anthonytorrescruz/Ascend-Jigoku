@@ -6,9 +6,12 @@ public class EnemyHealth : MonoBehaviour
     [Header("Enemy Health")]
     [SerializeField] private int maxHealth = 3;
     [Min(0), SerializeField] private float despawnDelay;
+    [Tooltip("0 keeps normal weapon damage. Bosses can cap damage per hit without changing player upgrades.")]
+    [Min(0), SerializeField] private int damagePerHitCap;
     public bool DamageEnabled { get; set; } = true;
 
     private int currentHealth;
+    private EnemySounds sounds;
 
     public int CurrentHealth => currentHealth;
     public int MaxHealth
@@ -22,8 +25,18 @@ public class EnemyHealth : MonoBehaviour
 
     public event Action<int, int> HealthChanged;
 
+    // Called once by encounter prefabs in Awake, before their first HealthChanged event.
+    public void InitializeEncounterHealth(int maximum, float deathDelay, int perHitCap = 0)
+    {
+        maxHealth = Mathf.Max(1, maximum);
+        currentHealth = maxHealth;
+        despawnDelay = Mathf.Max(0, deathDelay);
+        damagePerHitCap = Mathf.Max(0, perHitCap);
+    }
+
     private void Awake()
     {
+        sounds = GetComponent<EnemySounds>();
         currentHealth = MaxHealth;
     }
 
@@ -45,6 +58,7 @@ public class EnemyHealth : MonoBehaviour
             return;
         }
 
+        if (damagePerHitCap > 0) amount = Mathf.Min(amount, damagePerHitCap);
         currentHealth = Mathf.Max(
             0,
             currentHealth - amount
@@ -68,6 +82,10 @@ public class EnemyHealth : MonoBehaviour
         {
             Die();
         }
+        else if (sounds != null)
+        {
+            sounds.PlayHurt();
+        }
     }
 
     public bool TakeCombatDamage(int amount, Vector2 awayFromAttacker)
@@ -81,6 +99,7 @@ public class EnemyHealth : MonoBehaviour
     private void Die()
     {
         Debug.Log(gameObject.name + " died.");
+        if (sounds != null) sounds.PlayDeath();
 
         GetComponent<EnemyCombat>()?.CancelIntent();
         GetComponent<CombatAttack>()?.CancelAll();

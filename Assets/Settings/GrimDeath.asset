@@ -1,0 +1,161 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 320e2e562f29d154ebf5448c8831c4b7, type: 3}
+  m_Name: GrimDeath
+  m_EditorClassIdentifier: Assembly-CSharp::GrimDeathSettings
+  bossName: GRIM DEATH
+  health: 25
+  checkpointMarkerIndex: 1
+  rowsBeforeCheckpoint: 3
+  ceilingHeight: 18
+  engageDistance: 12
+  entranceSeconds: 1.2
+  moveSpeed: 12
+  stopDistance: 2.6
+  stepCooldown: 3
+  stepWarning: 0.38
+  stepFadeSeconds: 0.18
+  stepRecovery: 0.28
+  stepBehindDistance: 3.4
+  recoverySeconds: 0.65
+  parryStunSeconds: 0.8
+  scytheWindupFrames: 27
+  scytheActiveFrames: 8
+  comboGapFrames: 21
+  scytheSize: {x: 4.2, y: 2.8}
+  dashWarning: 0.6
+  dashSpeed: 42
+  dashSeconds: 0.32
+  castWarning: 0.85
+  boltCount: 5
+  boltSpeed: 15
+  boltGravity: 14
+  pillarWidth: 1.1
+  pillarSpacing: 4
+  pillarHeight: 12
+  pillarWarning: 1.15
+  pillarActive: 0.48
+  burstRadius: 5.8
+  burstWarning: 1.25
+  burstActive: 0.3
+  maxSpirits: 3
+  summonCooldown: 9
+  spiritSpeed: 10
+  spiritWarning: 0.7
+  spiritLifetime: 14
+  spiritHoverHeight: 0.35
+  spiritHurtboxSize: {x: 0.9, y: 1.4}
+  spiritHurtboxOffset: {x: 0, y: 0.7}
+  idle:
+  - {fileID: 2091529425, guid: 340ac16ec1bc0c24b9610ee27b26d906, type: 3}
+  - {fileID: 518276677, guid: 340ac16ec1bc0c24b9610ee27b26d906, type: 3}
+  - {fileID: 274766459, guid: 340ac16ec1bc0c24b9610ee27b26d906, type: 3}
+  - {fileID: -1342471272, guid: 340ac16ec1bc0c24b9610ee27b26d906, type: 3}
+  idle2:
+  - {fileID: 688696334, guid: 364ef625204eec644980e513c0c82e04, type: 3}
+  - {fileID: 1257313478, guid: 364ef625204eec644980e513c0c82e04, type: 3}
+  - {fileID: -752479960, guid: 364ef625204eec644980e513c0c82e04, type: 3}
+  - {fileID: -721432435, guid: 364ef625204eec644980e513c0c82e04, type: 3}
+  - {fileID: 608679946, guid: 364ef625204eec644980e513c0c82e04, type: 3}
+  - {fileID: 851045975, guid: 364ef625204eec644980e513c0c82e04, type: 3}
+  - {fileID: -380180404, guid: 364ef625204eec644980e513c0c82e04, type: 3}
+  - {fileID: -1712873460, guid: 364ef625204eec644980e513c0c82e04, type: 3}
+  scythe:
+  - {fileID: -173485756, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: 1611335437, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: -1101860462, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: -1973414251, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: 1389853869, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: -903974739, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: 877685506, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: 1050002543, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: -1717225302, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: -1112454905, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: 5928742637116941630, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: 4741326518408471436, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  - {fileID: -2630918475818767111, guid: ba362a5cdb089f541bc7828bbb4379ce, type: 3}
+  skill:
+  - {fileID: 569294024, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: -655584891, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: 2004737789, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: -901749293, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: -1187126567, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: -608555989, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: 1591366668, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: -1134683759, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: 1260944830, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: 693907898, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: -6857078158124440818, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  - {fileID: -2682086547265108738, guid: dd0a9070a5161f346931a67b0c77adad, type: 3}
+  summon:
+  - {fileID: 1198734980, guid: 112f56f844787394aa30d16576f38953, type: 3}
+  - {fileID: 140657978, guid: 112f56f844787394aa30d16576f38953, type: 3}
+  - {fileID: -1503317858, guid: 112f56f844787394aa30d16576f38953, type: 3}
+  - {fileID: -461809747, guid: 112f56f844787394aa30d16576f38953, type: 3}
+  - {fileID: 263288374, guid: 112f56f844787394aa30d16576f38953, type: 3}
+  death:
+  - {fileID: -1982659674, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: 1450727468, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -1147268420, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: 1817761127, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -1295600630, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -372959832, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: 113673478, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: 52544173, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -711455559, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -374357783, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -270028788923616002, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -5121890589552714621, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: 627783550670650900, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: 2891620135027730149, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: 7975919600420608313, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: 6275631635777415744, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -9015114149152096869, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -133209616158212645, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -7524816321260968566, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  - {fileID: -3394814105837533734, guid: c6084a23d98ba9e49a98717c20f16ec0, type: 3}
+  spiritAppear:
+  - {fileID: 1774343198, guid: b8e0c1052eadcb84f93e92fa726fba76, type: 3}
+  - {fileID: -421959503, guid: b8e0c1052eadcb84f93e92fa726fba76, type: 3}
+  - {fileID: -1604940218, guid: b8e0c1052eadcb84f93e92fa726fba76, type: 3}
+  - {fileID: 568864425, guid: b8e0c1052eadcb84f93e92fa726fba76, type: 3}
+  - {fileID: 770143272, guid: b8e0c1052eadcb84f93e92fa726fba76, type: 3}
+  - {fileID: 986572442, guid: b8e0c1052eadcb84f93e92fa726fba76, type: 3}
+  spiritIdle:
+  - {fileID: 100424337, guid: 1ca2202cc5fbe2d4f85325fd0b5ab7ac, type: 3}
+  - {fileID: -1713731774, guid: 1ca2202cc5fbe2d4f85325fd0b5ab7ac, type: 3}
+  - {fileID: 1525541293, guid: 1ca2202cc5fbe2d4f85325fd0b5ab7ac, type: 3}
+  - {fileID: 203024018, guid: 1ca2202cc5fbe2d4f85325fd0b5ab7ac, type: 3}
+  spiritDeath:
+  - {fileID: 1718122708, guid: e513e595358d91943b2f99b06f7ba024, type: 3}
+  - {fileID: -1983288982, guid: e513e595358d91943b2f99b06f7ba024, type: 3}
+  - {fileID: 870221625, guid: e513e595358d91943b2f99b06f7ba024, type: 3}
+  - {fileID: -1167257352, guid: e513e595358d91943b2f99b06f7ba024, type: 3}
+  - {fileID: 896757604, guid: e513e595358d91943b2f99b06f7ba024, type: 3}
+  - {fileID: 853131751, guid: e513e595358d91943b2f99b06f7ba024, type: 3}
+  framesPerSecond: 10
+  shadowColor: {r: 0.52, g: 0.26, b: 0.9, a: 1}
+  warningColor: {r: 0.82, g: 0.64, b: 1, a: 0.8}
+  music: {fileID: 8300000, guid: e59a747832ef77c49a604222c1c2fc34, type: 3}
+  scytheSound: {fileID: 8300000, guid: 2b2ba0a4a9c3d8e4c93eb665cbcd0a95, type: 3}
+  stepSound: {fileID: 8300000, guid: e1a86609d2956f14f91f2dbd83d1ea3c, type: 3}
+  castSound: {fileID: 8300000, guid: f9286cf846f0f9b4ea338b88661f8efa, type: 3}
+  spiritSound: {fileID: 8300000, guid: 617e78680c27b864b8b2b36785fff47e, type: 3}
+  spiritDeathSound: {fileID: 8300000, guid: b01b7bc1490a9904ca4ce97092270fb0, type: 3}
+  hitSound: {fileID: 8300000, guid: d4b3a9caa5d2dfc4189a030ee8813941, type: 3}
+  deathSound: {fileID: 8300000, guid: f8eab08c398b55544b64390f3d81cfd1, type: 3}
+  pillarSound: {fileID: 8300000, guid: e72e117643c11e348a9307e4098a8b99, type: 3}
+  burstSound: {fileID: 8300000, guid: d10b9dac87b68b043959e6627d6ac8a8, type: 3}
+  musicVolume: 0.32
+  effectsVolume: 0.65
+  bossPrefab: {fileID: 2987668218292718862, guid: fb0bb8f5486565e4e8210dbe8b66d7ff, type: 3}
+  spiritPrefab: {fileID: 3425202323690436802, guid: 38a09922b95a99f45bfbf74a0e710844, type: 3}

@@ -1,2 +1,14 @@
 fileFormatVersion: 2
 guid: 1e5d3895ab6074b49809c074e69e6f60
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - definition: {instanceID: 0}
+  - targetPlayer: {instanceID: 0}
+  - EattackClip: {fileID: 8300000, guid: d656da93430891f4d960a1a47564df06, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

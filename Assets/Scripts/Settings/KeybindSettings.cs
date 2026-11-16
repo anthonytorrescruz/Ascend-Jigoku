@@ -16,6 +16,19 @@ namespace AscendJigoku.Settings
         private const string DefaultInteractPath = "<Keyboard>/e";
         private const string GamepadInteractPath = "<Gamepad>/buttonNorth";
 
+        // Weapon ability and swap: rebindable keys that live outside the PlayerActions asset, like Interact.
+        private sealed class Extra
+        {
+            public string Id, Label, PrefKey, DefaultPath, PadPath;
+            public InputAction Template;
+            public readonly List<InputAction> Live = new List<InputAction>();
+        }
+        private static readonly Extra[] extras =
+        {
+            new Extra { Id = "ability", Label = "Weapon ability", PrefKey = "keybinds.v1.ability", DefaultPath = "<Keyboard>/u", PadPath = "<Gamepad>/rightTrigger" },
+            new Extra { Id = "swap", Label = "Swap weapon", PrefKey = "keybinds.v1.swap", DefaultPath = "<Keyboard>/i", PadPath = "<Gamepad>/leftTrigger" }
+        };
+
         public sealed class Entry
         {
             public string Id, Label;
@@ -44,6 +57,7 @@ namespace AscendJigoku.Settings
         {
             master = null; interactTemplate = null;
             entries.Clear(); assets.Clear(); interactActions.Clear();
+            foreach (var extra in extras) { extra.Template = null; extra.Live.Clear(); }
             Version = 0; Changed = null;
         }
 
@@ -73,6 +87,13 @@ namespace AscendJigoku.Settings
             AddButton("dash", "Dash", "Dash");
             AddButton("parry", "Parry", "Parry");
             AddButton("cast", "Shoot (tap) / Heal (hold)", "CastOrHeal");
+            foreach (var extra in extras)
+            {
+                extra.Template = new InputAction(extra.Label + " (settings)", InputActionType.Button, extra.DefaultPath);
+                string saved = PlayerPrefs.GetString(extra.PrefKey, "");
+                if (!string.IsNullOrEmpty(saved)) extra.Template.ApplyBindingOverride(0, saved);
+                entries.Add(new Entry { Id = extra.Id, Label = extra.Label, Action = extra.Template, BindingIndex = 0, IsGameplayButton = true });
+            }
             entries.Add(new Entry { Id = "interact", Label = "Talk / Interact", Action = interactTemplate, BindingIndex = 0 });
         }
 
@@ -119,6 +140,34 @@ namespace AscendJigoku.Settings
             return action;
         }
 
+        // "ability" or "swap": the player's chosen key plus a gamepad trigger.
+        public static InputAction CreateExtraAction(string id)
+        {
+            Init();
+            var extra = FindExtra(id);
+            var action = new InputAction("Weapon " + id, InputActionType.Button, extra.Template.bindings[0].effectivePath);
+            action.AddBinding(extra.PadPath);
+            extra.Live.RemoveAll(a => a == null);
+            extra.Live.Add(action);
+            return action;
+        }
+
+        public static void ReleaseExtraAction(string id, InputAction action) => FindExtra(id).Live.Remove(action);
+
+        public static string ExtraLabel(string id, bool controller)
+        {
+            Init();
+            var extra = FindExtra(id);
+            if (!controller) return extra.Template.GetBindingDisplayString(0);
+            return extra.PadPath.EndsWith("rightTrigger") ? "RT" : "LT";
+        }
+
+        private static Extra FindExtra(string id)
+        {
+            foreach (var extra in extras) if (extra.Id == id) return extra;
+            throw new ArgumentException("Unknown keybind " + id);
+        }
+
         public static void ReleaseInteractAction(InputAction action) => interactActions.Remove(action);
 
         private static void ApplyTo(InputActionAsset asset)
@@ -134,6 +183,14 @@ namespace AscendJigoku.Settings
             var interactOverride = interactTemplate.bindings[0].overridePath;
             if (string.IsNullOrEmpty(interactOverride)) PlayerPrefs.DeleteKey(InteractKey);
             else PlayerPrefs.SetString(InteractKey, interactOverride);
+            foreach (var extra in extras)
+            {
+                var over = extra.Template.bindings[0].overridePath;
+                if (string.IsNullOrEmpty(over)) PlayerPrefs.DeleteKey(extra.PrefKey);
+                else PlayerPrefs.SetString(extra.PrefKey, over);
+                extra.Live.RemoveAll(a => a == null);
+                foreach (var action in extra.Live) action.ApplyBindingOverride(0, extra.Template.bindings[0].effectivePath);
+            }
             PlayerPrefs.Save();
 
             assets.RemoveAll(a => a == null);
@@ -149,6 +206,7 @@ namespace AscendJigoku.Settings
             Init();
             master.asset.RemoveAllBindingOverrides();
             interactTemplate.RemoveAllBindingOverrides();
+            foreach (var extra in extras) extra.Template.RemoveAllBindingOverrides();
             SaveAndBroadcast();
         }
 

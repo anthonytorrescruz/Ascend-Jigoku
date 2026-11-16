@@ -43,6 +43,8 @@ namespace AscendJigoku.Gameplay
         public void CopyState(int[] counts, int[] amounts)
         {
             for (int i = 0; i < purchases.Length; i++) { counts[i] = purchases[i]; amounts[i] = applied[i]; }
+            var weapons = GetComponent<PlayerWeapons>();
+            if (weapons != null) counts[counts.Length - 1] = RunSave.PackWeapons(counts[counts.Length - 1], weapons.OwnedMask);
         }
         public void RestoreState(int[] counts, int[] amounts)
         {
@@ -52,8 +54,10 @@ namespace AscendJigoku.Gameplay
             {
                 int missing = amounts[i] - applied[i];
                 if (missing > 0) Grant((UpgradeKind)i, missing);
-                purchases[i] = Mathf.Max(purchases[i], counts[i]);
+                purchases[i] = Mathf.Max(purchases[i], RunSave.UnpackCount(counts[i]));
             }
+            var weapons = GetComponent<PlayerWeapons>();
+            if (weapons != null) weapons.SetOwnedMask(weapons.OwnedMask | RunSave.UnpackWeapons(counts[counts.Length - 1]));
         }
     }
 }

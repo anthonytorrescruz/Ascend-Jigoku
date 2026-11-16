@@ -1,4 +1,6 @@
+using Unity.VisualScripting;
 using UnityEngine;
+
 
 [RequireComponent(typeof(EnemyHealth), typeof(Pogoable), typeof(CombatAttack))]
 [DisallowMultipleComponent]
@@ -36,6 +38,7 @@ public class EnemyCombat : MonoBehaviour
     public float WindupRemaining => windingUp ? Mathf.Max(0, windupEndsAt - Time.time) : 0;
     public bool IsStunned => Time.time < stunnedUntil;
     public float StunnedUntil => stunnedUntil;
+    private EnemySounds sounds;
     public void Stun(float now, float duration)
     {
         stunnedUntil = Mathf.Max(stunnedUntil, now + Mathf.Max(0, duration));
@@ -53,6 +56,7 @@ public class EnemyCombat : MonoBehaviour
         sprite = GetComponent<SpriteRenderer>();
         attack.SetTeam(CombatTeam.Enemy);
         health = GetComponent<EnemyHealth>();
+        sounds = GetComponent<EnemySounds>();
     }
     private void Start()
     {
@@ -61,6 +65,7 @@ public class EnemyCombat : MonoBehaviour
     }
     public void SetTarget(PlayerHealth player)
     {
+        
         targetPlayer = player;
         targetBody = player != null ? player.GetComponent<Rigidbody2D>() : null;
         targetCollider = player != null ? player.GetComponent<Collider2D>() : null;
@@ -80,12 +85,18 @@ public class EnemyCombat : MonoBehaviour
             attack.Feedback?.CancelWindup();
             GetAttackGeometry(direction, out Vector2 offset, out Vector2 size);
             var swing = attack.BeginAttack(direction, offset, size, definition != null ? definition.damage : attackDamage,
-                definition != null ? definition.activeFrames : attack.Settings.enemyActiveFrames, playerLayers, now);
-            if (swing != null) nextAttackAt = swing.EndsAt + (definition != null ? definition.recoverySeconds : attack.Settings.enemyCooldownSeconds);
+            definition != null ? definition.activeFrames : attack.Settings.enemyActiveFrames, playerLayers, now);
+            if (swing != null)
+            {
+                nextAttackAt = swing.EndsAt + (definition != null ? definition.recoverySeconds : attack.Settings.enemyCooldownSeconds);
+                if (sounds != null) sounds.PlayAttack();
+            }
             return;
         }
         if ((attack.CurrentSwing != null && attack.CurrentSwing.IsActive(now))
-            || now < nextAttackAt || now < nextDetectionAt) return;
+            || now < nextAttackAt || now < nextDetectionAt) {
+                return;
+            }
         nextDetectionAt = now + detectionIntervalFrames / CombatAttack.ReferenceFramesPerSecond;
         if (!DetectPlayer(out direction)) return;
         GetAttackGeometry(direction, out Vector2 windupOffset, out Vector2 windupSize);

@@ -26,6 +26,7 @@ public class CombatResolver : MonoBehaviour
         public int Amount;
         public float KnockbackDirection;
         public Vector2 EnemyKnockback;
+        public float KnockbackScale;
         public bool Apply;
         public bool IsContact;
     }
@@ -85,7 +86,7 @@ public class CombatResolver : MonoBehaviour
         }
         // Commit enemy damage before player damage, which may reload the scene on death.
         for (int i = 0; i < pending.Count; i++)
-            if (pending[i].Apply && pending[i].Enemy != null) pending[i].Enemy.TakeCombatDamage(pending[i].Amount, pending[i].EnemyKnockback);
+            if (pending[i].Apply && pending[i].Enemy != null) ApplyEnemyHit(pending[i]);
         for (int i = 0; i < pending.Count; i++)
             if (pending[i].Apply && pending[i].Player != null)
                 pending[i].Player.TakeCombatDamage(pending[i].Amount, pending[i].KnockbackDirection);
@@ -97,6 +98,8 @@ public class CombatResolver : MonoBehaviour
     {
         if (hit == null || hit.transform.IsChildOf(swing.Owner.transform)
             || CombatAttack.IsHitbox(hit)) return;
+        if (swing.CircleRadius > 0 && ((Vector2)hit.ClosestPoint(swing.Box.center) - swing.Box.center).sqrMagnitude
+            > swing.CircleRadius * swing.CircleRadius) return;
         if (!HasClearPath(swing, hit.ClosestPoint(swing.Owner.transform.position), hit)) return;
         if (swing.Owner.Team == CombatTeam.Player)
         {
@@ -109,7 +112,7 @@ public class CombatResolver : MonoBehaviour
             if (enemy != null && swing.Damage > 0 && (swing.DamageLayers.value & (1 << hit.gameObject.layer)) != 0
                 && swing.TargetsHit.Add(enemy))
                 pending.Add(new PendingDamage { Swing = swing, Enemy = enemy, Amount = swing.Damage,
-                    EnemyKnockback = enemy.transform.position - swing.Owner.transform.position });
+                    EnemyKnockback = enemy.transform.position - swing.Owner.transform.position, KnockbackScale = swing.Knockback });
         }
         else
         {
@@ -121,6 +124,20 @@ public class CombatResolver : MonoBehaviour
             pending.Add(new PendingDamage { Swing = swing, Player = player, Amount = swing.Damage,
                 KnockbackDirection = KnockbackDirection(swing.Owner.transform.position.x, player) });
         }
+    }
+    private static void ApplyEnemyHit(PendingDamage hit)
+    {
+        if (!hit.Enemy.TakeCombatDamage(hit.Amount, hit.EnemyKnockback) || Mathf.Approximately(hit.KnockbackScale, 1) || hit.Enemy.CurrentHealth <= 0) return;
+        var body = hit.Enemy.GetComponent<Rigidbody2D>();
+        if (body != null && body.bodyType == RigidbodyType2D.Dynamic) body.linearVelocity *= hit.KnockbackScale;
+    }
+    // Erases enemy projectiles (swings whose owner is not an enemy body) inside the area.
+    public void CancelProjectiles(Rect area)
+    {
+        foreach (var swing in swings)
+            if (swing.Owner != null && swing.Owner.Team == CombatTeam.Enemy && !swing.Cancelled
+                && swing.Owner.GetComponent<EnemyHealth>() == null && swing.Box.Overlaps(area))
+                swing.Owner.Cancel(swing);
     }
     private bool HasClearPath(CombatAttack.Swing swing, Vector2 point, Collider2D target = null)
     {

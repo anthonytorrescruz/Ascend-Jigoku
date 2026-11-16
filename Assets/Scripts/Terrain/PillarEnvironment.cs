@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using AscendJigoku.Gameplay;
+using AscendJigoku.Settings;
 using AscendJigoku.UI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -8,7 +9,7 @@ using UnityEngine.UI;
 
 // Environmental variation for the streamed pillar (AJ-77):
 //  - Height zones change the sky colour, tint generated rock and recolour the backdrop.
-//  - Two parallax layers of distant pillars, generated from the run seed (no art assets needed yet).
+//  - Layered zone scenery (BackdropArt): far / mid / near silhouettes that crossfade between zones, sky glow, lava falls, drifting fog.
 //  - Ambient embers and an optional zone title when the player climbs into a new zone.
 // Added automatically next to VerticalLevelGenerator. Add it to the generator object yourself to tune it in the Inspector.
 [DefaultExecutionOrder(1000)] // after CameraFollow, so layers track the final camera position
@@ -48,7 +49,13 @@ public sealed class PillarEnvironment : MonoBehaviour
     [Header("Parallax (0 = moves with the world, 1 = fixed to the screen)")]
     [Range(0, 1)] public float farFactor = 0.9f;
     [Range(0, 1)] public float midFactor = 0.72f;
+    [Range(0, 1)] public float nearFactor = 0.45f;
     public bool parallax = true;
+
+    [Header("Backdrop")]
+    [Range(0, 1)] public float glowStrength = 1f;
+    [Range(0, 1)] public float fogStrength = 1f;
+    [Tooltip("Units per second.")] public float fogDrift = 0.35f, fallSpeed = 1.6f;
 
     [Header("Terrain")]
     [Tooltip("Paint generated platforms as pixel-art rock (TerrainSkin). Off = the old flat tinted blocks.")]
@@ -63,8 +70,15 @@ public sealed class PillarEnvironment : MonoBehaviour
 
     private VerticalLevelGenerator generator;
     private Camera view;
-    private SpriteRenderer far, mid;
-    private Vector2 farTile, midTile;
+    private const int LayerCount = 3;
+    private static readonly int[] LayerPpu = { 8, 12, 16 };
+    private static readonly int[] LayerOrder = { -200, -150, -110 };
+    private static readonly float[] ZoneGlow = { 0.34f, 0.07f, 0.07f, 0.16f };
+    private readonly SpriteRenderer[,] layers = new SpriteRenderer[LayerCount, 2];
+    private readonly Sprite[,] layerSprites = new Sprite[LayerCount, 4];
+    private readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>();
+    private SpriteRenderer glow, falls, fog, fogNear, gate;
+    private int seed;
     private readonly List<Ember> embers = new List<Ember>();
     private Text zoneTitle;
     private float titleAge = float.PositiveInfinity;
@@ -99,17 +113,17 @@ public sealed class PillarEnvironment : MonoBehaviour
         Array.Sort(zones, (a, b) => a.startsAt.CompareTo(b.startsAt));
     }
 
-    private void OnDestroy() { if (Active == this) Active = null; }
+    private void OnDestroy()
+    {
+        if (Active == this) Active = null;
+        foreach (var o in owned) if (o != null) Destroy(o);
+    }
 
     private void Start()
     {
         view = Camera.main;
-        int seed = generator != null ? generator.CurrentSeed : 0;
-        if (parallax)
-        {
-            far = CreateLayer("Parallax far", FarTexture(seed), 8, -200, out farTile);
-            mid = CreateLayer("Parallax mid", MidTexture(seed ^ 0x5bd1e995), 16, -150, out midTile);
-        }
+        seed = generator != null ? generator.CurrentSeed : 0;
+        if (parallax) BuildBackdrop();
         if (showZoneTitles) CreateTitle();
         LateUpdate();
     }
@@ -161,6 +175,14 @@ public sealed class PillarEnvironment : MonoBehaviour
 
     public static bool PixelArtTerrain => Active == null || Active.pixelArtTerrain;
 
+    // Zone index (0 = THE CINDER PIT ... 3 = GATE OF JIGOKU) at a height above the pillar base. 0 when no environment.
+    public static int ZoneAt(float localHeight)
+    {
+        var self = Active;
+        if (self == null || self.zones == null || self.zones.Length == 0) return 0;
+        return self.ZoneIndex(Mathf.Clamp01(localHeight / Mathf.Max(1, self.PillarHeight)));
+    }
+
     // Lava-vein colour and how often veins appear, following the zone's ember settings.
     public static void GlowAt(float localHeight, out Color color, out float density)
     {
@@ -193,118 +215,120 @@ public sealed class PillarEnvironment : MonoBehaviour
         view.backgroundColor = Color.Lerp(a.sky, b.sky, t);
         float viewHeight = view.orthographic ? view.orthographicSize * 2 : 20;
         Vector2 viewSize = new Vector2(viewHeight * view.aspect, viewHeight);
-        if (far != null) { PlaceLayer(far, farTile, farFactor, cam, viewSize); far.color = Color.Lerp(a.farLayer, b.farLayer, t); }
-        if (mid != null) { PlaceLayer(mid, midTile, midFactor, cam, viewSize); mid.color = Color.Lerp(a.midLayer, b.midLayer, t); }
+        if (parallax) UpdateBackdrop(cam, viewSize, fraction, a, b, t);
 
         if (ambientEmbers) UpdateEmbers(cam, viewSize, Color.Lerp(a.embers, b.embers, t), Mathf.Lerp(a.emberDensity, b.emberDensity, t));
         UpdateTitle();
     }
 
-    private static void PlaceLayer(SpriteRenderer layer, Vector2 tile, float factor, Vector2 cam, Vector2 viewSize)
+    private static void PlaceLayer(SpriteRenderer layer, Vector2 tile, float factor, Vector2 cam, Vector2 viewSize, Vector2 scroll)
     {
         // Snap the tiled sprite to whole tiles so its content appears to move at (1 - factor) of world speed.
         var size = new Vector2(Mathf.Ceil(viewSize.x / tile.x + 2) * tile.x, Mathf.Ceil(viewSize.y / tile.y + 2) * tile.y);
         if (layer.size != size) layer.size = size;
-        float x = cam.x - Mathf.Repeat(cam.x * (1 - factor), tile.x);
-        float y = cam.y - Mathf.Repeat(cam.y * (1 - factor), tile.y);
+        float x = cam.x - Mathf.Repeat(cam.x * (1 - factor) + scroll.x, tile.x);
+        float y = cam.y - Mathf.Repeat(cam.y * (1 - factor) + scroll.y, tile.y);
         layer.transform.position = new Vector3(x, y, 10);
     }
 
-    private SpriteRenderer CreateLayer(string name, Texture2D texture, float pixelsPerUnit, int order, out Vector2 tile)
+    // ---------- Backdrop ----------
+
+    private Sprite MakeSprite(Texture2D texture, int ppu)
+    {
+        var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f), ppu, 0, SpriteMeshType.FullRect);
+        owned.Add(texture); owned.Add(sprite);
+        return sprite;
+    }
+
+    private SpriteRenderer NewRenderer(string name, Sprite sprite, int order, bool tiled)
     {
         var go = new GameObject(name, typeof(SpriteRenderer));
         go.transform.SetParent(transform, false);
         var renderer = go.GetComponent<SpriteRenderer>();
-        var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f), pixelsPerUnit, 0, SpriteMeshType.FullRect);
-        sprite.name = name;
         renderer.sprite = sprite;
-        renderer.drawMode = SpriteDrawMode.Tiled;
-        renderer.tileMode = SpriteTileMode.Continuous;
+        if (tiled) { renderer.drawMode = SpriteDrawMode.Tiled; renderer.tileMode = SpriteTileMode.Continuous; }
         renderer.sortingOrder = order;
-        tile = new Vector2(texture.width / pixelsPerUnit, texture.height / pixelsPerUnit);
         return renderer;
     }
 
-    // ---------- Generated backdrops (seamless in both directions) ----------
-
-    private static Texture2D FarTexture(int seed)
+    private void BuildBackdrop()
     {
-        // Distant spires: tall columns with wobbling edges and a lit rim.
-        const int w = 256, h = 256;
-        var random = new System.Random(seed);
-        var pixels = new Color32[w * h];
-        int columns = 4 + random.Next(3);
-        for (int c = 0; c < columns; c++)
+        glow = NewRenderer("Sky glow", MakeSprite(BackdropArt.Glow(), 1), -210, false);
+        falls = NewRenderer("Lava falls", MakeSprite(BackdropArt.Falls(seed, Accents0), 8), -190, true);
+        var fogTexture = BackdropArt.Fog(seed);
+        fog = NewRenderer("Fog far", MakeSprite(fogTexture, 8), -120, true);
+        fogNear = NewRenderer("Fog near", MakeSprite(fogTexture, 6), -92, true);
+        gate = NewRenderer("Giant gate", MakeSprite(BackdropArt.GiantGate(zones[zones.Length - 1].sky), 8), -195, false);
+        for (int l = 0; l < LayerCount; l++)
+            for (int k = 0; k < 2; k++) layers[l, k] = NewRenderer($"Backdrop {l}{(k == 0 ? "a" : "b")}", ZoneSprite(l, 0), LayerOrder[l] + k, true);
+    }
+
+    private Sprite ZoneSprite(int layer, int zone)
+    {
+        if (layerSprites[layer, zone] != null) return layerSprites[layer, zone];
+        var z = zones[zone];
+        return layerSprites[layer, zone] = MakeSprite(BackdropArt.Layer(zone, layer, seed, z.sky, LayerTone(z, layer)), LayerPpu[layer]);
+    }
+
+    private static Color LayerTone(Zone zone, int layer) => layer == 0 ? zone.farLayer : layer == 1 ? zone.midLayer : Color.Lerp(zone.midLayer, Color.black, 0.35f);
+
+    private void UpdateBackdrop(Vector2 cam, Vector2 viewSize, float fraction, Zone a, Zone b, float t)
+    {
+        int ia = Mathf.Min(Array.IndexOf(zones, a), 3), ib = Mathf.Min(Array.IndexOf(zones, b), 3);
+        float time = Time.time;
+        float pulse = GameSettings.ReduceFlashing ? 1 : 1 + 0.12f * Mathf.Sin(time * 0.8f);
+        float[] factors = { farFactor, midFactor, nearFactor };
+        for (int l = 0; l < LayerCount; l++)
         {
-            float cx = (float)random.NextDouble() * w;
-            float half = 6 + (float)random.NextDouble() * 18;
-            int f1 = 1 + random.Next(3), f2 = 3 + random.Next(5);
-            float p1 = (float)random.NextDouble() * 6.283f, p2 = (float)random.NextDouble() * 6.283f;
-            int ledgeEvery = 2 + random.Next(3);
-            for (int y = 0; y < h; y++)
-            {
-                float v = (float)y / h;
-                float width = half + 4 * Mathf.Sin(6.283f * f1 * v + p1) + 2 * Mathf.Sin(6.283f * f2 * v + p2);
-                if (Mathf.Repeat(v * ledgeEvery, 1) < 0.05f) width += 7; // occasional ledge
-                for (int x = 0; x < w; x++)
-                {
-                    float dx = WrapDistance(x + 0.5f, cx, w);
-                    if (dx >= width) continue;
-                    bool rim = (x + 0.5f - cx + w * 1.5f) % w - w * 0.5f < 0 && dx > width - 2.5f;
-                    byte value = rim ? (byte)255 : (byte)170;
-                    int index = y * w + x;
-                    if (pixels[index].a == 0 || pixels[index].r < value) pixels[index] = new Color32(value, value, value, 255);
-                }
-            }
+            var tile = Vector2.one * (BackdropArt.Size / (float)LayerPpu[l]);
+            var back = layers[l, 0]; var front = layers[l, 1];
+            back.sprite = ZoneSprite(l, ia);
+            front.sprite = ZoneSprite(l, ib);
+            front.enabled = ib != ia && t > 0.01f;
+            front.color = new Color(1, 1, 1, t);
+            PlaceLayer(back, tile, factors[l], cam, viewSize, Vector2.zero);
+            if (front.enabled) PlaceLayer(front, tile, factors[l], cam, viewSize, Vector2.zero);
         }
-        return Finish(pixels, w, h, "Generated far parallax");
-    }
 
-    private static Texture2D MidTexture(int seed)
-    {
-        // Nearer broken pillars: fewer, wider, with dark horizontal fractures.
-        const int w = 256, h = 256;
-        var random = new System.Random(seed);
-        var pixels = new Color32[w * h];
-        int columns = 2 + random.Next(2);
-        for (int c = 0; c < columns; c++)
+        // Sky glow: zone colour from below, pooled magma near the pillar base.
+        var glowColor = Color.Lerp(a.embers, b.embers, t);
+        float strength = Mathf.Lerp(ZoneGlow[ia], ZoneGlow[ib], t) + 0.3f * Mathf.Clamp01(1 - fraction / 0.08f);
+        glowColor.a = Mathf.Clamp01(strength * glowStrength * pulse);
+        glow.color = glowColor;
+        glow.transform.position = new Vector3(cam.x, cam.y, 10);
+        glow.transform.localScale = new Vector3(viewSize.x * 1.4f, viewSize.y * 1.4f / 64, 1); // oversized so its edges never show
+
+        // Lava falls belong to the Cinder Pit.
+        float lava = (ia == 0 ? 1 - t : 0) + (ib == 0 ? t : 0);
+        falls.enabled = lava > 0.01f;
+        if (falls.enabled)
         {
-            float cx = (float)random.NextDouble() * w;
-            float half = 14 + (float)random.NextDouble() * 22;
-            int f1 = 1 + random.Next(2), f2 = 4 + random.Next(4);
-            float p1 = (float)random.NextDouble() * 6.283f, p2 = (float)random.NextDouble() * 6.283f;
-            int cracks = 3 + random.Next(4);
-            float crackPhase = (float)random.NextDouble();
-            for (int y = 0; y < h; y++)
-            {
-                float v = (float)y / h;
-                float width = half + 6 * Mathf.Sin(6.283f * f1 * v + p1) + 3 * Mathf.Sin(6.283f * f2 * v + p2);
-                bool crackRow = Mathf.Repeat(v * cracks + crackPhase, 1) < 0.012f;
-                for (int x = 0; x < w; x++)
-                {
-                    float dx = WrapDistance(x + 0.5f, cx, w);
-                    if (dx >= width) continue;
-                    byte value = crackRow ? (byte)110 : dx > width - 3 ? (byte)230 : (byte)200;
-                    pixels[y * w + x] = new Color32(value, value, value, 255);
-                }
-            }
+            falls.color = new Color(Accents0.r, Accents0.g, Accents0.b, 0.5f * lava * (0.85f + 0.15f * pulse));
+            PlaceLayer(falls, Vector2.one * (BackdropArt.Size / 8f), farFactor, cam, viewSize, new Vector2(0, time * fallSpeed));
         }
-        return Finish(pixels, w, h, "Generated mid parallax");
+
+        // Fog: ash and purple haze are heaviest; the pit and bone zones get thin bands.
+        var fogColor = Color.Lerp(a.farLayer, b.farLayer, t) * 1.7f;
+        float density = Mathf.Lerp(FogDensity[ia], FogDensity[ib], t) * fogStrength;
+        fogColor.a = 0.22f * density;
+        fog.color = fogColor;
+        fogNear.color = new Color(fogColor.r, fogColor.g, fogColor.b, 0.1f * density);
+        PlaceLayer(fog, new Vector2(32, 16), 0.6f, cam, viewSize, new Vector2(time * fogDrift, 0));
+        PlaceLayer(fogNear, new Vector2(256 / 6f, 128 / 6f), 0.3f, cam, viewSize, new Vector2(-time * fogDrift * 1.6f, 0));
+
+        // Giant gate hangs above the top of the pillar, rising into view as the camera climbs.
+        float gateY = transform.position.y + PillarHeight * 1.01f;
+        float gateAlpha = Mathf.Clamp01((fraction - 0.7f) * 10);
+        gate.enabled = gateAlpha > 0;
+        if (gate.enabled)
+        {
+            gate.transform.position = new Vector3(cam.x, cam.y + (gateY - cam.y) * (1 - farFactor), 10);
+            gate.color = new Color(1, 1, 1, gateAlpha);
+        }
     }
 
-    private static float WrapDistance(float x, float center, float width)
-    {
-        float d = Mathf.Abs(x - center) % width;
-        return Mathf.Min(d, width - d);
-    }
-
-    private static Texture2D Finish(Color32[] pixels, int w, int h, string name)
-    {
-        var texture = ProceduralSprites.NewTexture(w, h, name, TextureWrapMode.Repeat);
-        texture.SetPixels32(pixels);
-        texture.Apply(false, true);
-        return texture;
-    }
+    private static readonly Color Accents0 = new Color(0.95f, 0.38f, 0.12f);
+    private static readonly float[] FogDensity = { 0.5f, 1f, 0.6f, 0.9f };
 
     // ---------- Embers ----------
 

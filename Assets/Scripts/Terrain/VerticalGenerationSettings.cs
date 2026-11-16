@@ -25,8 +25,10 @@ public sealed class VerticalGenerationSettings : ScriptableObject
     [Min(0)] public float unloadBuffer = 12;
     [Range(1, 12)] public int platformsPerFrame = 3;
     [Header("Long Falls")]
-    [Min(2)] public float fallDistance = 12;
+    [Tooltip("A fall hurts only once you are dropping as fast as a free fall of this many units.")]
+    [Min(2)] public float fallDistance = 24;
     [Min(1)] public int fallDamage = 1;
+    [Tooltip("Minimum bounce after fall damage; the bounce otherwise returns you about as high as you fell.")]
     [Min(2)] public float fallBounceHeight = 14;
     [Header("Run")]
     public bool randomizeSeed = true;
@@ -35,6 +37,8 @@ public sealed class VerticalGenerationSettings : ScriptableObject
     public HeightMarker[] heightMarkers = Array.Empty<HeightMarker>();
     [Header("Required Boss Before Checkpoint (optional)")]
     public BossEncounterSettings bossEncounter;
+    [Header("Final Boss Before Second Checkpoint (optional)")]
+    public GrimDeathSettings finalBossEncounter;
     [Header("Checkpoint Shops (optional)")]
     public AscendJigoku.Gameplay.Shopkeeper checkpointShopPrefab;
     [Min(0)] public float checkpointShopOffset = 2;

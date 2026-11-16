@@ -11,7 +11,7 @@ namespace AscendJigoku.UI
     // Works while Time.timeScale is 0. Escape / B / Start goes back; Escape cancels a key being rebound.
     public sealed class SettingsMenu : MonoBehaviour
     {
-        private enum Page { Audio, Controls, Accessibility }
+        private enum Page { Audio, Controls, Display, Accessibility }
 
         private static SettingsMenu current;
         public static bool IsOpen => current != null;
@@ -85,12 +85,12 @@ namespace AscendJigoku.UI
             MenuStyle.FullScreen(canvas, "Backdrop", MenuStyle.Background);
             MenuStyle.Title(canvas, "SETTINGS", 300, 52);
 
-            string[] names = { "AUDIO", "CONTROLS", "ACCESSIBILITY" };
+            string[] names = { "AUDIO", "CONTROLS", "DISPLAY", "ACCESSIBILITY" };
             Button firstTab = null;
             for (int i = 0; i < names.Length; i++)
             {
                 var target = (Page)i;
-                var tab = MenuStyle.Button(canvas, names[i], new Vector2(-240 + i * 240, 215), () => ShowPage(target), new Vector2(220, 48), 22);
+                var tab = MenuStyle.Button(canvas, names[i], new Vector2(-390 + i * 260, 215), () => ShowPage(target), new Vector2(250, 48), 22);
                 if (target == page) { var colors = tab.colors; colors.normalColor = MenuStyle.TabActive; tab.colors = colors; }
                 if (i == 0) firstTab = tab;
             }
@@ -102,6 +102,7 @@ namespace AscendJigoku.UI
 
             if (page == Page.Audio) BuildAudio();
             else if (page == Page.Controls) BuildControls();
+            else if (page == Page.Display) BuildDisplay();
             else BuildAccessibility();
             MenuStyle.SelectForController(firstTab);
         }
@@ -117,6 +118,7 @@ namespace AscendJigoku.UI
         {
             if (rebinding != null) return;
             if (page == Page.Controls) { KeybindSettings.ResetToDefaults(); Build(); status.text = "Keys restored to defaults."; }
+            else if (page == Page.Display) { GameSettings.ResetDisplayToDefaults(); GameSettings.SetShowTimer(false); GameSettings.Save(); Build(); status.text = "Display restored to defaults."; }
             else { GameSettings.ResetToDefaults(); GameSettings.Save(); Build(); status.text = "Audio and accessibility restored to defaults."; }
         }
 
@@ -137,7 +139,7 @@ namespace AscendJigoku.UI
             for (int i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
-                float y = 128 - i * 37;
+                float y = 128 - i * Mathf.Min(37f, 350f / Mathf.Max(1, entries.Count - 1));
                 RowLabel(entry.Label, y, 20);
                 Button button = null;
                 button = MenuStyle.Button(content, entry.DisplayKey, new Vector2(200, y), () => BeginRebind(button, entry), new Vector2(260, 32), 20);
@@ -160,11 +162,32 @@ namespace AscendJigoku.UI
             speedValue = ValueLabel(95, Mathf.RoundToInt(GameSettings.GameSpeed * 100) + "%");
 
             ToggleRow("Hit-stop (impact freeze)", 40, () => GameSettings.HitStop, GameSettings.SetHitStop);
-            ToggleRow("Reduce flashing", -15, () => GameSettings.ReduceFlashing, GameSettings.SetReduceFlashing);
-            ToggleRow("Stronger attack warnings", -70, () => GameSettings.StrongTelegraphs, GameSettings.SetStrongTelegraphs);
-            ToggleRow("Low-health vignette", -125, () => GameSettings.DamageVignette, GameSettings.SetDamageVignette);
-            MenuStyle.Label(content, "Note", "Game speed slows the whole game, including enemies. It applies when you return to play.",
-                new Vector2(0, -180), new Vector2(1000, 30), 18, TextAnchor.MiddleCenter, MenuStyle.MutedText);
+            ToggleRow("Reduce flashing", -8, () => GameSettings.ReduceFlashing, GameSettings.SetReduceFlashing);
+            ToggleRow("Stronger attack warnings", -56, () => GameSettings.StrongTelegraphs, GameSettings.SetStrongTelegraphs);
+            ToggleRow("Low-health vignette", -104, () => GameSettings.DamageVignette, GameSettings.SetDamageVignette);
+            ToggleRow("Instant respawn", -152, () => GameSettings.InstantRespawn, GameSettings.SetInstantRespawn);
+            MenuStyle.Label(content, "Note", "Game speed slows enemies too and applies on return to play. Instant respawn skips the death screen.",
+                new Vector2(0, -200), new Vector2(1000, 30), 18, TextAnchor.MiddleCenter, MenuStyle.MutedText);
+        }
+
+        private void BuildDisplay()
+        {
+            ToggleRow("Fullscreen", 150, () => GameSettings.Fullscreen, GameSettings.SetFullscreen);
+            CycleRow("Window size (windowed)", 95, () => { var s = GameSettings.WindowSizes[GameSettings.WindowSize]; return s.x + " x " + s.y; },
+                () => GameSettings.SetWindowSize((GameSettings.WindowSize + 1) % GameSettings.WindowSizes.Length));
+            ToggleRow("VSync", 40, () => GameSettings.VSync, GameSettings.SetVSync);
+            CycleRow("Frame limit", -15, () => GameSettings.FrameCap <= 0 ? "None" : GameSettings.FrameCap + " FPS",
+                () => GameSettings.SetFrameCap(NextCap(GameSettings.FrameCap)));
+            ToggleRow("Show run timer", -70, () => GameSettings.ShowTimer, GameSettings.SetShowTimer);
+            MenuStyle.Label(content, "Note", "Frame limit only applies with VSync off. Window size applies when not fullscreen.",
+                new Vector2(0, -125), new Vector2(1000, 30), 18, TextAnchor.MiddleCenter, MenuStyle.MutedText);
+        }
+
+        private static int NextCap(int current)
+        {
+            var caps = GameSettings.FrameCaps;
+            int i = System.Array.IndexOf(caps, current);
+            return caps[(i + 1) % caps.Length];
         }
 
         private static string ShakeText(float value) => value <= 0 ? "Off" : Mathf.RoundToInt(value * 100) + "%";
@@ -184,6 +207,13 @@ namespace AscendJigoku.UI
             MenuStyle.Slider(content, new Vector2(200, y), 300, 0, 100, true, Mathf.Round(value * 100),
                 v => { set(v / 100f); valueText.text = Mathf.RoundToInt(v) + "%"; });
             valueText = ValueLabel(y, Mathf.RoundToInt(value * 100) + "%");
+        }
+
+        private void CycleRow(string label, float y, Func<string> get, Action advance)
+        {
+            RowLabel(label, y);
+            Button cycle = null;
+            cycle = MenuStyle.Button(content, get(), new Vector2(160, y), () => { advance(); MenuStyle.SetButtonText(cycle, get()); }, new Vector2(220, 42), 22);
         }
 
         private void ToggleRow(string label, float y, Func<bool> get, Action<bool> set)

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AscendJigoku.Gameplay;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -6,7 +7,7 @@ using UnityEngine.UI;
 namespace AscendJigoku.UI
 {
     // Runtime additions to MainMenu.unity, built by copying the scene's own buttons so they keep the authored look:
-    //  - SETTINGS between START and QUIT.
+    //  - SETTINGS between START and QUIT, with TUTORIAL (replays the opening and tutorial) above it.
     //  - CONTINUE above START when a saved run exists (AJ-75). START then reads NEW RUN and asks for a second click.
     // Nothing is saved into the scene. A hand-authored button named "Settings Button" / "Continue Button" disables that part.
     public static class MainMenuExtras
@@ -41,12 +42,13 @@ namespace AscendJigoku.UI
             var menu = Object.FindAnyObjectByType<MainMenu>();
             if (menu == null || menu.gameObject.scene != scene) return;
             Button start = null, quit = null;
-            bool hasSettings = false, hasContinue = false;
+            bool hasSettings = false, hasContinue = false, hasTutorial = false;
             foreach (var button in Object.FindObjectsByType<Button>())
             {
                 if (button.gameObject.scene != scene) continue;
                 if (button.name == "Settings Button") hasSettings = true;
                 if (button.name == "Continue Button") hasContinue = true;
+                if (button.name == "Tutorial Button") hasTutorial = true;
                 for (int i = 0; i < button.onClick.GetPersistentEventCount(); i++)
                 {
                     string method = button.onClick.GetPersistentMethodName(i);
@@ -56,14 +58,13 @@ namespace AscendJigoku.UI
             }
             if (start == null || quit == null) return;
 
-            var startRect = (RectTransform)start.transform;
-            var quitRect = (RectTransform)quit.transform;
-            Vector2 top = startRect.anchoredPosition;
-            Vector2 step = quitRect.anchoredPosition - startRect.anchoredPosition; // one row
-            Button settings = null, resume = null;
+            Button settings = null, resume = null, tutorial = null;
 
             if (!hasSettings)
                 settings = Copy(quit, "Settings Button", "SETTINGS", OpenSettings);
+
+            if (!hasTutorial)
+                tutorial = Copy(quit, "Tutorial Button", "TUTORIAL", menu.StartTutorial);
 
             bool canContinue = !hasContinue && RunSave.TryLoad(out var save) && Application.CanStreamedLevelBeLoaded(save.scene);
             if (canContinue)
@@ -78,15 +79,27 @@ namespace AscendJigoku.UI
                     if (!armed) { armed = true; SetLabel(start, "CONFIRM NEW RUN"); return; }
                     menu.StartGame();
                 });
+                // TUTORIAL also starts a new run (it replaces the save), so it asks twice as well.
+                if (tutorial != null)
+                {
+                    bool tutorialArmed = false;
+                    tutorial.onClick = new Button.ButtonClickedEvent();
+                    tutorial.onClick.AddListener(() =>
+                    {
+                        if (!tutorialArmed) { tutorialArmed = true; SetLabel(tutorial, "CONFIRM TUTORIAL"); return; }
+                        menu.StartTutorial();
+                    });
+                }
             }
 
-            // Stack: CONTINUE, START, SETTINGS, QUIT from the original START position.
-            int row = 0;
-            if (resume != null) Place(resume, top + step * row++);
-            Place(start, top + step * row++);
-            if (settings != null) Place(settings, top + step * row++);
-            Place(quit, top + step * row);
-            if (resume != null) resume.transform.SetSiblingIndex(start.transform.GetSiblingIndex());
+            // Stack: CONTINUE, START, TUTORIAL, SETTINGS, QUIT, then apply the Ember layout.
+            var order = new List<Button>();
+            if (resume != null) order.Add(resume);
+            order.Add(start);
+            if (tutorial != null) order.Add(tutorial);
+            if (settings != null) order.Add(settings);
+            order.Add(quit);
+            MenuSceneSkin.SkinMainMenu(menu, order);
         }
 
         private static Button Copy(Button source, string name, string label, UnityEngine.Events.UnityAction onClick)
@@ -104,7 +117,5 @@ namespace AscendJigoku.UI
             var label = button.GetComponentInChildren<Text>();
             if (label != null) label.text = text;
         }
-
-        private static void Place(Button button, Vector2 position) => ((RectTransform)button.transform).anchoredPosition = position;
     }
 }

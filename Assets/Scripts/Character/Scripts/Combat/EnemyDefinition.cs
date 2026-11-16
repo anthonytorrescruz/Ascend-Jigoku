@@ -25,13 +25,37 @@ public sealed class EnemyDefinition : ScriptableObject
     public LayerMask terrainLayers = 1 << 3;
 
     [Header("Jumping / Flying")]
+    [Tooltip("Ground enemies with this on can take off while chasing.")]
+    public bool canFly;
+    [Tooltip("Takes off when the player is this far above, or when a wall blocks the way.")]
+    [Min(0)] public float flyWhenTargetAbove = 2;
+    [Min(0)] public float flightCooldown = 2;
     [Min(0)] public float jumpSpeed = 10;
     [Min(0)] public float jumpForwardSpeed = 4;
     [Min(0)] public float jumpCooldown = 1;
     [Min(0.1f)] public float jumpSearchDistance = 4;
     [Min(0)] public float maximumDrop = 2;
+    [Range(0, 1)] public float flyChance = 0.3f;
+    [Min(0)] public float flightSecondsMin = 3;
+    [Min(0)] public float flightSecondsMax = 6;
+    [Min(0)] public float idleFlightHeight = 2;
     [Tooltip("Flyers approach this height above the player before striking down.")]
+    
     public float hoverHeight = 1.4f;
+
+    [Header("Navigation")]
+    [Tooltip("Walkers climb ledges up to this tall without jumping; anything taller is a wall.")]
+    [Min(0)] public float stepHeight = 0.35f;
+    [Tooltip("Flyers look this far ahead for terrain and steer around it.")]
+    [Min(0.3f)] public float steerLookAhead = 1.2f;
+    [Tooltip("Trying to move without making progress for this long counts as stuck.")]
+    [Min(0.3f)] public float stuckSeconds = 1;
+    [Tooltip("An unreachable target is given up on after this long.")]
+    [Min(0)] public float giveUpSeconds = 0.8f;
+    [Tooltip("After giving up or losing the player, ignores them for this long.")]
+    [Min(0)] public float reaggroDelay = 2;
+    [Tooltip("Stops ground enemies being knocked off a ledge by hits.")]
+    public bool ledgeGuard = true;
 
     [Header("Attack - Frames at 60 FPS")]
     [Min(0)] public int damage = 1;

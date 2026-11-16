@@ -22,7 +22,9 @@ namespace AscendJigoku.UI
         private PlayerControlLock controlLock;
         private ShopMenu shop;
         private RectTransform canvas;
-        private Button firstButton;
+        private Button firstButton, restartButton;
+        private Text statusLine;
+        private float restartConfirmUntil;
         private bool paused, leaving;
         private CursorLockMode cursorLock;
         private bool cursorVisible;
@@ -89,6 +91,7 @@ namespace AscendJigoku.UI
                 if (toggle.WasPressedThisFrame() && CanPause()) Pause();
                 return;
             }
+            if (restartConfirmUntil > 0 && Time.unscaledTime > restartConfirmUntil) ResetRestart();
             if (SettingsMenu.IsOpen || SettingsMenu.LastBackFrame == Time.frameCount) return;
             if (toggle.WasPressedThisFrame() || back.WasPressedThisFrame()) Resume();
         }
@@ -111,6 +114,8 @@ namespace AscendJigoku.UI
             cursorLock = Cursor.lockState; cursorVisible = Cursor.visible;
             Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
             canvas.gameObject.SetActive(true);
+            statusLine.text = QolRunHud.StatusLine();
+            ResetRestart();
             MenuStyle.SelectForController(firstButton);
         }
 
@@ -118,6 +123,7 @@ namespace AscendJigoku.UI
         {
             if (!paused) return;
             paused = false;
+            ResetRestart();
             canvas.gameObject.SetActive(false);
             Time.timeScale = GameSettings.GameplayTimeScale;
             Cursor.lockState = cursorLock; Cursor.visible = cursorVisible;
@@ -133,6 +139,30 @@ namespace AscendJigoku.UI
                 canvas.gameObject.SetActive(true);
                 MenuStyle.SelectForController(firstButton);
             });
+        }
+
+        // First press asks to confirm (like NEW RUN); a second press within a few seconds restarts at the last checkpoint.
+        private void RestartFromCheckpoint()
+        {
+            if (leaving) return;
+            if (restartConfirmUntil <= 0)
+            {
+                restartConfirmUntil = Time.unscaledTime + 4;
+                MenuStyle.SetButtonText(restartButton, "CONFIRM RESTART?");
+                return;
+            }
+            string scenePath = gameObject.scene.path;
+            if (!Application.CanStreamedLevelBeLoaded(scenePath)) { Debug.LogError("Scene is not in the build scene list: " + scenePath); ResetRestart(); return; }
+            leaving = true;
+            Time.timeScale = GameSettings.GameplayTimeScale;
+            Cursor.lockState = cursorLock; Cursor.visible = cursorVisible;
+            SceneManager.LoadScene(scenePath);
+        }
+
+        private void ResetRestart()
+        {
+            restartConfirmUntil = 0;
+            if (restartButton != null) MenuStyle.SetButtonText(restartButton, "RESTART CHECKPOINT");
         }
 
         private void ReturnToMainMenu()
@@ -155,11 +185,20 @@ namespace AscendJigoku.UI
         {
             canvas = MenuStyle.CreateCanvas("Pause Canvas", 150, transform);
             MenuStyle.FullScreen(canvas, "Backdrop", MenuStyle.Overlay);
-            MenuStyle.Title(canvas, "PAUSED", 145);
-            firstButton = MenuStyle.Button(canvas, "RESUME", new Vector2(0, 25), Resume);
-            MenuStyle.Button(canvas, "SETTINGS", new Vector2(0, -55), OpenSettings);
-            MenuStyle.Button(canvas, "MAIN MENU", new Vector2(0, -135), ReturnToMainMenu);
-            MenuStyle.Button(canvas, "QUIT", new Vector2(0, -215), Quit);
+            MenuStyle.CornerTitle(canvas, "", "PAUSED", 72);
+            var options = MenuStyle.LeftColumn(canvas, 5 * 56);
+            string[] labels = { "RESUME", "RESTART CHECKPOINT", "SETTINGS", "MAIN MENU", "QUIT" };
+            System.Action[] actions = { Resume, RestartFromCheckpoint, OpenSettings, ReturnToMainMenu, Quit };
+            for (int i = 0; i < labels.Length; i++)
+            {
+                var button = MenuStyle.Button(options, labels[i], new Vector2(0, 112 - i * 56), actions[i], alignment: TextAnchor.MiddleLeft);
+                if (i == 0) firstButton = button;
+                if (i == 1) restartButton = button;
+            }
+            statusLine = MenuStyle.Label(canvas, "Status", "", new Vector2(0, 0), new Vector2(900, 28), 18, TextAnchor.MiddleLeft, MenuStyle.MutedText);
+            var rect = statusLine.rectTransform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.zero;
+            rect.anchoredPosition = new Vector2(60, 40);
         }
     }
 }

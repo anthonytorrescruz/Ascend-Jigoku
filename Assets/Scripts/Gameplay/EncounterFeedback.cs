@@ -55,11 +55,17 @@ namespace AscendJigoku.Gameplay
             Instance.vignettePulse = 1f;
         }
 
+         public static void OnEnemyAttack()
+        {
+            Shake(0.35f); 
+            HitStop(0.09f); 
+        }
+
         public static void OnEnemyHit(CombatFeedback target, bool lethal)
         {
             Shake(lethal ? 0.3f : 0.16f);
             HitStop(lethal ? 0.08f : 0.045f);
-            if (lethal && target != null) Instance.Burst(target);
+            if (lethal && target != null && !target.SkipDeathBurst) Instance.Burst(target);
         }
 
         public static void OnParry() { Shake(0.35f); HitStop(0.09f); }
@@ -151,9 +157,10 @@ namespace AscendJigoku.Gameplay
             {
                 int hp = player.CurrentHealth, max = Mathf.Max(1, player.MaxHealth);
                 bool low = hp > 0 && (hp == 1 || hp <= max / 3);
-                float breathing = GameSettings.ReduceFlashing ? 0 : 0.08f * Mathf.Sin(Time.unscaledTime * 3.2f);
-                float baseline = hp <= 0 ? 0.85f : low ? 0.5f + breathing : 0;
-                float pulse = vignettePulse * (GameSettings.ReduceFlashing ? 0.4f : 0.7f);
+                // Kept subtle now that the HUD shows health; the vignette is a mood cue, not the only readout.
+                float breathing = GameSettings.ReduceFlashing ? 0 : 0.05f * Mathf.Sin(Time.unscaledTime * 3.2f);
+                float baseline = hp <= 0 ? 0.6f : low ? 0.28f + breathing : 0;
+                float pulse = vignettePulse * (GameSettings.ReduceFlashing ? 0.25f : 0.42f);
                 alpha = Mathf.Clamp01(Mathf.Max(baseline, pulse));
             }
             var color = vignette.color; color.a = alpha; vignette.color = color;

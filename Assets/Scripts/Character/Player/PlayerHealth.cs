@@ -4,6 +4,7 @@ using UnityEngine.SceneManagement;
 using AscendJigoku.UI;
 using System.Collections;
 
+[DefaultExecutionOrder(50)] // after CombatFeedback, so the protection blink wins over its tint
 public class PlayerHealth : MonoBehaviour
 {
     [SerializeField] private int maxHealth = 3;
@@ -22,6 +23,9 @@ public class PlayerHealth : MonoBehaviour
 
     [Header("Death Animation")]
     [Min(0), SerializeField] private float deathAnimationSeconds = 0.8f;
+    [Tooltip("Upper limit on the pause between dying and the death screen / retry.")]
+    [Min(0), SerializeField] private float maxDeathDelaySeconds = 0.55f;
+    private SpriteRenderer blinkSprite;
     private float invulnerableUntil;
 
     private int currentHealth;
@@ -49,10 +53,26 @@ public class PlayerHealth : MonoBehaviour
         return true;
     }
 
+    // Back to full health after a scripted death (tutorial); scene-level death handlers call this.
+    public void Revive()
+    {
+        currentHealth = maxHealth;
+        HealthChanged?.Invoke(currentHealth, maxHealth);
+    }
+
     private void Awake()
     {
         currentHealth = maxHealth;
         playerController = GetComponent<PlayerController>();
+        blinkSprite = GetComponent<SpriteRenderer>();
+    }
+
+    // Readable protection blink: a clear on/off flicker instead of a colour wash. Steady dim with Reduce Flashing.
+    private void LateUpdate()
+    {
+        if (blinkSprite == null || currentHealth <= 0 || ProtectionRemaining <= 0) return;
+        float alpha = AscendJigoku.Settings.GameSettings.ReduceFlashing ? 0.6f : (Mathf.FloorToInt(Time.time * 12) % 2 == 0 ? 1f : 0.35f);
+        var c = blinkSprite.color; c.a = alpha; blinkSprite.color = c;
     }
 
     private void Start()
@@ -101,6 +121,7 @@ public class PlayerHealth : MonoBehaviour
 
     private void Die()
     {
+        QolRunHud.NoteDeath();
         GetComponent<PlayerSpell>()?.Cancel(true);
         GetComponent<PlayerCombat>()?.Cancel();
         GetComponent<PlayerParry>()?.Cancel();
@@ -117,10 +138,10 @@ public class PlayerHealth : MonoBehaviour
 
     private IEnumerator FinishDeath(PlayerDeathHandler deathHandler)
 {
-    yield return new WaitForSeconds(deathAnimationSeconds);
+    yield return new WaitForSecondsRealtime(Mathf.Min(deathAnimationSeconds, maxDeathDelaySeconds));
 
     if (deathHandler != null) { deathHandler.OnPlayerDied(); yield break; }
-    if (ShouldShowDeathScreen)
+    if (ShouldShowDeathScreen && !AscendJigoku.Settings.GameSettings.InstantRespawn)
     {
         if (playerController != null) playerController.enabled = false;
         var combat = GetComponent<PlayerCombat>();

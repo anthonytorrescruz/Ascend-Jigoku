@@ -14,12 +14,14 @@ public class EnemyContactDamage : MonoBehaviour
     private void OnCollisionStay2D(Collision2D collision) => CheckContact(collision.collider);
     private void CheckContact(Collider2D other)
     {
+
         if (CombatAttack.IsHitbox(other)) return;
         var player = other.GetComponentInParent<PlayerHealth>();
         if (player != null) TryContact(player, Time.time);
     }
     public bool TryContact(PlayerHealth player, float now)
     {
+        
         var health = GetComponent<EnemyHealth>();
         var combat = GetComponent<EnemyCombat>();
         var profile = combat != null ? combat.Definition : null;

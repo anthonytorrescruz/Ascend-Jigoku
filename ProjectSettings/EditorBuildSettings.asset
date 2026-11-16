@@ -20,6 +20,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Death.unity
     guid: 4c65dc4a206733d4aa4535ae6fda8e28
+  - enabled: 1
+    path: Assets/Scenes/GrimDeathPlayground.unity
+    guid: 79d3c93a593177c47938d6b6d9c5a7c2
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings: {fileID: 11400000, guid: 1991d4b294d1e3144b20bfee7b2680d0, type: 2}

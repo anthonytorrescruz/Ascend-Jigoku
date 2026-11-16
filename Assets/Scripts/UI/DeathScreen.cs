@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -74,6 +75,20 @@ namespace AscendJigoku.UI
                 EventSystem.current.SetSelectedGameObject(retryButton.gameObject);
             }
             StartCoroutine(Reveal());
+            var canvas = retryButton != null ? retryButton.GetComponentInParent<Canvas>() : null;
+            if (canvas != null)
+            {
+                var hint = MenuStyle.Label(canvas.transform, "Retry Hint", "Press R to retry", new Vector2(0, -170), new Vector2(600, 30), 20, TextAnchor.MiddleCenter, MenuStyle.MutedText);
+                hint.raycastTarget = false;
+            }
+        }
+
+        // Quick retry without reaching for the mouse. Short guard so a key still held from play cannot skip the screen.
+        private void Update()
+        {
+            if (leaving || Time.timeSinceLevelLoad < 0.15f) return;
+            var keyboard = Keyboard.current;
+            if (keyboard != null && (keyboard.rKey.wasPressedThisFrame)) Retry();
         }
 
         private IEnumerator Reveal()

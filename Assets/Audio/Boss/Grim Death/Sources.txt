@@ -1,0 +1,2 @@
+GrimDeathBattleMusic.mp3: user-supplied audio_keeper-boss-battle-500204.mp3 (Audio_keeper / Pixabay). Retained unchanged; use subject to the source music license.
+All WAV effects in this folder are original deterministic procedural synth recordings created for Ascend Jigoku. No external sound samples.

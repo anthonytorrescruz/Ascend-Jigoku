@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6911fde383004311b7b132f5054ca5ce, type: 3}
   m_Name: CombatSettings
   m_EditorClassIdentifier: Assembly-CSharp::CombatSettings
+  playerStartupFrames: 8
   playerAttackSize: {x: 2, y: 2}
   playerActiveFrames: 6
   playerRecoveryFrames: 8

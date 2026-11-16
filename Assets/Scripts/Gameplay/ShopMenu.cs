@@ -120,7 +120,7 @@ namespace AscendJigoku.Gameplay
             panel = new GameObject("Shop", typeof(RectTransform), typeof(Image)); panel.transform.SetParent(root.transform, false);
             var rect = (RectTransform)panel.transform; rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
             var backdrop = AscendJigoku.UI.MenuStyle.Background; backdrop.a = 0.98f; panel.GetComponent<Image>().color = backdrop;
-            title = Label(panel.transform, "Merchant", new Vector2(0, 355), new Vector2(1300, 70), 45); title.fontStyle = FontStyle.Bold;
+            title = Label(panel.transform, "Merchant", new Vector2(0, 355), new Vector2(1300, 70), 45); AscendJigoku.UI.MenuStyle.StyleTitle(title, 45);
             greeting = Label(panel.transform, "Greeting", new Vector2(0, 265), new Vector2(1300, 90), 25);
             balance = Label(panel.transform, "Wallet", new Vector2(0, 190), new Vector2(1300, 60), 28);
             buttons = new Button[3];
@@ -130,22 +130,23 @@ namespace AscendJigoku.Gameplay
             var backNav = leaveButton.navigation; backNav.mode = Navigation.Mode.Explicit; backNav.selectOnUp = buttons[2]; backNav.selectOnDown = buttons[0]; leaveButton.navigation = backNav;
             message = Label(panel.transform, "Purchase result", new Vector2(0, -210), new Vector2(1300, 60), 26);
             stats = Label(panel.transform, "Stats and reset rules", new Vector2(0, -365), new Vector2(1350, 95), 23);
+            greeting.color = AscendJigoku.UI.MenuStyle.MutedText; balance.color = AscendJigoku.UI.MenuStyle.Ember; stats.color = AscendJigoku.UI.MenuStyle.DimText;
             panel.SetActive(false);
         }
         private Button Button(Transform parent, string name, Vector2 position, Vector2 size, UnityEngine.Events.UnityAction action)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(ShopCancelHandler)); go.transform.SetParent(parent, false);
             var rect = (RectTransform)go.transform; rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f); rect.anchoredPosition = position; rect.sizeDelta = size;
-            go.GetComponent<Image>().color = Color.white; var button = go.GetComponent<Button>();
-            button.colors = AscendJigoku.UI.MenuStyle.ButtonColors; // shared menu palette (AJ-66)
+            var button = go.GetComponent<Button>();
             go.GetComponent<ShopCancelHandler>().shop = this; button.onClick.AddListener(action);
-            Label(go.transform, "Text", Vector2.zero, size - new Vector2(15, 5), 24); return button;
+            Label(go.transform, "Text", Vector2.zero, size - new Vector2(15, 5), 24);
+            AscendJigoku.UI.MenuStyle.ApplyButton(button); return button; // shared Ember look (AJ-66)
         }
         private static Text Label(Transform parent, string name, Vector2 position, Vector2 size, int fontSize)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Text)); go.transform.SetParent(parent, false);
             var rect = (RectTransform)go.transform; rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f); rect.anchoredPosition = position; rect.sizeDelta = size;
-            var text = go.GetComponent<Text>(); text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); text.fontSize = fontSize; text.color = Color.white; text.alignment = TextAnchor.MiddleCenter; text.raycastTarget = false; return text;
+            var text = go.GetComponent<Text>(); text.font = AscendJigoku.UI.MenuStyle.Font; text.fontSize = fontSize; text.color = AscendJigoku.UI.MenuStyle.TextColor; text.alignment = TextAnchor.MiddleCenter; text.raycastTarget = false; return text;
         }
     }
 }

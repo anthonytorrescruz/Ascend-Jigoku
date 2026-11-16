@@ -29,13 +29,15 @@ namespace AscendJigoku.Gameplay
                 if (controlsText == null || controlsWereController != UsesController)
                 {
                     controlsWereController = UsesController;
-                    controlsText = $"{(UsesController ? "Stick/D-pad" : "WASD/Arrows")}: move/aim   {Button("Jump")}: jump   {Button("Attack")}: attack   {Button("Dash")}: dash   {Button("Parry")}: parry   {Button("CastOrHeal")}: tap shoot / hold heal   {Interact}: talk   {(UsesController ? "Menu" : "Esc")}: pause";
+                    controlsText = $"{(UsesController ? "Stick/D-pad" : "WASD/Arrows")}: move/aim   {Button("Jump")}: jump   {Button("Attack")}: attack   {Button("Dash")}: dash   {Button("Parry")}: parry   {Button("CastOrHeal")}: tap shoot / hold heal   {Button("Ability")}: weapon ability   {Button("SwapWeapon")}: swap weapon   {Interact}: talk   {(UsesController ? "Menu" : "Esc")}: pause";
                 }
                 return controlsText;
             }
         }
         public string Button(string action)
         {
+            if (action == "Ability" || action == "SwapWeapon")
+            { SyncLabels(); return KeybindSettings.ExtraLabel(action == "Ability" ? "ability" : "swap", UsesController); }
             if (bindings == null) { bindings = new PlayerActions(); KeybindSettings.Register(bindings.asset); }
             SyncLabels();
             string key = (UsesController ? "pad:" : "key:") + action;

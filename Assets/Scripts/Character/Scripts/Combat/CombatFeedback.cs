@@ -8,6 +8,8 @@ public sealed class CombatFeedback : MonoBehaviour
 {
     [Range(0, 1), SerializeField] private float volume = 0.12f;
     [SerializeField] private AudioClip hitSound, parrySound, pogoSound;
+    [SerializeField] private bool skipDeathBurst;
+    public bool SkipDeathBurst => skipDeathBurst;
     private static AudioClip defaultHit, defaultParry, defaultPogo;
     private SpriteRenderer body;
     private PlayerHealth health;
@@ -36,6 +38,7 @@ public sealed class CombatFeedback : MonoBehaviour
             EncounterFeedback.OnEnemyHit(this, enemy != null && enemy.CurrentHealth <= 0);
         }
     }
+
     public void Parry()
     {
         Flash(new Color(0.5f, 1, 0.8f), 0.12f);

@@ -24,7 +24,17 @@ namespace AscendJigoku.Settings
         public static bool DamageVignette { get; private set; } = true;
         public static float GameSpeed { get; private set; } = 1f;
 
+        // Gameplay / display.
+        public static bool InstantRespawn { get; private set; }
+        public static bool ShowTimer { get; private set; }
+        public static bool Fullscreen { get; private set; } = true;
+        public static int WindowSize { get; private set; } = 1;
+        public static bool VSync { get; private set; } = true;
+        public static int FrameCap { get; private set; }
+
         public const float MinGameSpeed = 0.5f;
+        public static readonly Vector2Int[] WindowSizes = { new Vector2Int(960, 540), new Vector2Int(1280, 720), new Vector2Int(1600, 900), new Vector2Int(1920, 1080) };
+        public static readonly int[] FrameCaps = { 0, 60, 120, 144, 240 };
 
         // Time scale used whenever a menu hands control back to gameplay.
         public static float GameplayTimeScale => GameSpeed;
@@ -34,6 +44,7 @@ namespace AscendJigoku.Settings
         {
             Load();
             Apply();
+            ApplyDisplay();
         }
 
         public static void Load()
@@ -47,6 +58,12 @@ namespace AscendJigoku.Settings
             StrongTelegraphs = PlayerPrefs.GetInt(Prefix + "strongTelegraphs", 0) != 0;
             DamageVignette = PlayerPrefs.GetInt(Prefix + "vignette", 1) != 0;
             GameSpeed = Mathf.Clamp(PlayerPrefs.GetFloat(Prefix + "gameSpeed", 1f), MinGameSpeed, 1f);
+            InstantRespawn = PlayerPrefs.GetInt(Prefix + "instantRespawn", 0) != 0;
+            ShowTimer = PlayerPrefs.GetInt(Prefix + "timer", 0) != 0;
+            Fullscreen = PlayerPrefs.GetInt(Prefix + "fullscreen", Screen.fullScreen ? 1 : 0) != 0;
+            WindowSize = Mathf.Clamp(PlayerPrefs.GetInt(Prefix + "windowSize", 1), 0, WindowSizes.Length - 1);
+            VSync = PlayerPrefs.GetInt(Prefix + "vsync", QualitySettings.vSyncCount > 0 ? 1 : 0) != 0;
+            FrameCap = Mathf.Max(0, PlayerPrefs.GetInt(Prefix + "frameCap", 0));
         }
 
         public static void Save()
@@ -60,6 +77,12 @@ namespace AscendJigoku.Settings
             PlayerPrefs.SetInt(Prefix + "strongTelegraphs", StrongTelegraphs ? 1 : 0);
             PlayerPrefs.SetInt(Prefix + "vignette", DamageVignette ? 1 : 0);
             PlayerPrefs.SetFloat(Prefix + "gameSpeed", GameSpeed);
+            PlayerPrefs.SetInt(Prefix + "instantRespawn", InstantRespawn ? 1 : 0);
+            PlayerPrefs.SetInt(Prefix + "timer", ShowTimer ? 1 : 0);
+            PlayerPrefs.SetInt(Prefix + "fullscreen", Fullscreen ? 1 : 0);
+            PlayerPrefs.SetInt(Prefix + "windowSize", WindowSize);
+            PlayerPrefs.SetInt(Prefix + "vsync", VSync ? 1 : 0);
+            PlayerPrefs.SetInt(Prefix + "frameCap", FrameCap);
             PlayerPrefs.Save();
         }
 
@@ -74,11 +97,40 @@ namespace AscendJigoku.Settings
         // Takes effect when gameplay next resumes (menus own the time scale while open).
         public static void SetGameSpeed(float value) { GameSpeed = Mathf.Clamp(Mathf.Round(value * 10f) / 10f, MinGameSpeed, 1f); Apply(); }
 
+        public static void SetInstantRespawn(bool value) { InstantRespawn = value; Apply(); }
+        public static void SetShowTimer(bool value) { ShowTimer = value; Apply(); }
+        public static void SetFullscreen(bool value) { Fullscreen = value; ApplyDisplay(); }
+        public static void SetWindowSize(int index) { WindowSize = Mathf.Clamp(index, 0, WindowSizes.Length - 1); ApplyDisplay(); }
+        public static void SetVSync(bool value) { VSync = value; ApplyDisplay(); }
+        public static void SetFrameCap(int fps) { FrameCap = Mathf.Max(0, fps); ApplyDisplay(); }
+
+        public static void ResetDisplayToDefaults()
+        {
+            Fullscreen = true; WindowSize = 1; VSync = true; FrameCap = 0;
+            ApplyDisplay();
+        }
+
         public static void ResetToDefaults()
         {
+            InstantRespawn = ShowTimer = false;
             MasterVolume = MusicVolume = SfxVolume = 1f;
             ScreenShake = 1f; HitStop = true; ReduceFlashing = false; StrongTelegraphs = false; DamageVignette = true; GameSpeed = 1f;
             Apply();
+        }
+
+        // Window size only matters when windowed; the editor's Game view is left alone.
+        private static void ApplyDisplay()
+        {
+            QualitySettings.vSyncCount = VSync ? 1 : 0;
+            Application.targetFrameRate = FrameCap > 0 ? FrameCap : -1;
+            if (Application.isEditor) return;
+            var size = WindowSizes[WindowSize];
+            if (Fullscreen)
+            {
+                var native = Screen.currentResolution;
+                Screen.SetResolution(native.width, native.height, FullScreenMode.FullScreenWindow);
+            }
+            else Screen.SetResolution(size.x, size.y, FullScreenMode.Windowed);
         }
 
         private static void Apply()

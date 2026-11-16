@@ -54,6 +54,9 @@ public class CombatAttack : MonoBehaviour
         public Rect Box;
         public float StartedAt, EndsAt;
         public int Damage;
+        // Zero uses the normal rectangle. Circle attacks reject targets outside this radius.
+        public float CircleRadius;
+        public float Knockback = 1;
         public LayerMask DamageLayers;
         public bool Cancelled, Parried, PogoTriggered;
         public readonly HashSet<Component> TargetsHit = new HashSet<Component>();
@@ -95,15 +98,16 @@ public class CombatAttack : MonoBehaviour
     }
 
     public Swing BeginAttack(CombatDirection direction, Vector2 offset, Vector2 size,
-        int damage, int activeFrames, LayerMask damageLayers, float now)
+        int damage, int activeFrames, LayerMask damageLayers, float now, int extraStartupFrames = 0)
     {
-        if (CurrentSwing != null && CurrentSwing.IsActive(now)) return null;
+        if (CurrentSwing != null && !CurrentSwing.Cancelled && now < CurrentSwing.EndsAt) return null;
         telegraphing = false;
+        float startsAt = now + (team == CombatTeam.Player ? Settings.playerStartupFrames + Mathf.Max(0, extraStartupFrames) : 0) / ReferenceFramesPerSecond;
         CurrentSwing = new Swing {
             Owner = this, Direction = direction, Offset = offset,
             Size = new Vector2(Mathf.Max(0.01f, size.x), Mathf.Max(0.01f, size.y)),
             Damage = Mathf.Max(0, damage), DamageLayers = damageLayers,
-            StartedAt = now, EndsAt = now + Mathf.Max(1, activeFrames) / ReferenceFramesPerSecond
+            StartedAt = startsAt, EndsAt = startsAt + Mathf.Max(1, activeFrames) / ReferenceFramesPerSecond
         };
         CurrentSwing.RefreshBox();
         CombatResolver.Instance.Register(CurrentSwing);

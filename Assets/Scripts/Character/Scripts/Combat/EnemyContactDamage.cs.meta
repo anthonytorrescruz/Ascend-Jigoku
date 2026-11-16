@@ -1,2 +1,12 @@
 fileFormatVersion: 2
 guid: 5cefb59b4d0cd70458b07a790a9a8c92
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - EattackClip: {fileID: 8300000, guid: 626156e5fdfd08e418bd258580fca98d, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -18,6 +18,7 @@ namespace AscendJigoku.Gameplay
         public int checkpointRow;
         public float checkpointHeight;
         public bool bossDefeated;
+        public bool finalBossDefeated;
         // Player state captured at the last checkpoint/purchase. hasSnapshot is false before the first checkpoint.
         public bool hasSnapshot;
         public int[] purchases = new int[3];
@@ -74,6 +75,13 @@ namespace AscendJigoku.Gameplay
             try { if (File.Exists(FilePath)) File.Delete(FilePath); }
             catch (Exception e) { Debug.LogWarning("Saved run could not be deleted: " + e.Message); }
         }
+
+        // Owned weapons ride in the high bits of the last purchase counter so the run snapshot carries them
+        // with no extra field: Continue and death-reload both restore what was owned at the last save.
+        private const int WeaponShift = 8;
+        public static int PackWeapons(int count, int weaponMask) => (count & 0xFF) | (weaponMask << WeaponShift);
+        public static int UnpackCount(int packed) => packed & 0xFF;
+        public static int UnpackWeapons(int packed) => packed >> WeaponShift;
 
         public static int[] Fit(int[] values)
         {

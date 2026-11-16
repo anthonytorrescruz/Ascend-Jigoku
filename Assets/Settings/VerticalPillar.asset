@@ -28,7 +28,7 @@ MonoBehaviour:
   keepBelow: 28
   unloadBuffer: 12
   platformsPerFrame: 3
-  fallDistance: 12
+  fallDistance: 24
   fallDamage: 1
   fallBounceHeight: 14
   randomizeSeed: 1
@@ -47,6 +47,7 @@ MonoBehaviour:
     checkpoint: 1
     prefab: {fileID: 0}
   bossEncounter: {fileID: 11400000, guid: ae725496f21f72044b1b899f2fb6a5d6, type: 2}
+  finalBossEncounter: {fileID: 11400000, guid: 46d59fd5b72f9ef4fbd6fd9f73c14133, type: 2}
   checkpointShopPrefab: {fileID: 4703443110002337927, guid: be4845375bfeba746884df7f8be4fe77, type: 3}
   checkpointShopOffset: 2
   enemyOnEveryPlatform: 1
@@ -56,14 +57,14 @@ MonoBehaviour:
   clearLandingHalfWidth: 1.25
   enemies:
   - prefab: {fileID: 3312387624880291732, guid: eaca19b93c40f423382d29b2a7e79354, type: 3}
-    weight: 5
+    weight: 2
     firstRow: 1
-  - prefab: {fileID: 8830242863704324528, guid: 0f25b00b64b2e40f9ae1549c37fb9788, type: 3}
+  - prefab: {fileID: 0}
     weight: 3
     firstRow: 12
-  - prefab: {fileID: 6804256437230772012, guid: 86f1e56c545c54c87a693e2317d211e7, type: 3}
+  - prefab: {fileID: 6804256437230772012, guid: df3dddc75f7c39d4ca3ff4680cd5eab3, type: 3}
     weight: 2
-    firstRow: 18
-  - prefab: {fileID: 8281849485158205743, guid: 1ffd16f802e294b8788fe285e3fda1ef, type: 3}
+    firstRow: 1
+  - prefab: {fileID: 0}
     weight: 1
     firstRow: 30
