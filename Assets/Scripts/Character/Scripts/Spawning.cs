@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
+// Spawns one copy of a prefab at a point when the scene starts.
 public class TwoDSpriteSpawner : MonoBehaviour
 {
     [Header("Prefab Settings")]

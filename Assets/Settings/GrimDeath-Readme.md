@@ -2,9 +2,9 @@
 
 For the presentation, open **Tools > Anthony > Open Grim Death Practice**, then press Play.
 The same encounter is part of **ProceduralPillar**, the gameplay scene launched by MainMenu:
-Fire Worm -> first checkpoint (200) -> Grim Death -> second checkpoint (400).
+Fire Worm -> first checkpoint (200) -> Grim Death -> second checkpoint (400) -> ending.
 
-Grim Death has **25 health**, following the last requested value. A connecting player hit
+Grim Death has **10 health**. A connecting player hit
 removes one boss health, regardless of weapon upgrades. Every boss attack removes one
 player health and uses the existing damage protection and horizontal knockback.
 
@@ -23,7 +23,8 @@ player health and uses the existing damage protection and horizontal knockback.
   The summon cap and cooldown prevent flooding.
 
 All six attacks and summons are available from the start. There is no fire or slime phase.
-Parry cancels the connecting attack and stuns the boss; pogo cancels an enemy weapon or bolt
+A successful parry cancels the connecting attack and stuns the boss, grants 24 frames (0.4s) of protection against follow-up hits/body contact, and allows a counterattack after 6 frames (0.1s). Follow-up deflections do not extend that window. A missed parry retains its normal recovery and grants no protection.
+Pogo cancels an enemy weapon or bolt
 without consuming a jump. Damage does not erase an already advertised boss attack.
 The brief dash/blink invulnerability is limited to transit; recovery and parry stun are openings.
 
@@ -54,3 +55,17 @@ Spell objects are pooled with a hard cap of 64; spirit population is capped sepa
 Shared warning shapes/materials and reused physics-query lists avoid per-frame creation.
 The boss and its floor stay loaded while unbeaten, preserving HP during streaming.
 The boss HUD is created only at runtime, scales with the game's UI canvas, and never blocks input.
+
+## Presentation polish
+
+The second checkpoint ends the demo after both bosses are defeated. Checkpoints heal
+and silently clear visible enemies/projectiles without coin rewards. Standing on a
+checkpoint protects against damage; walking/jumping away ends that protection.
+The ending freezes gameplay and player physics, stops combat audio, and hides gameplay
+HUDs. The checkpoint save survives an interrupted cinematic and is cleared at the end card.
+
+Grim Death waits for lingering spell hazards before starting another major move,
+recovers for 0.9s (at least 1.1s after summons), and staggers spirit lunges. Amber marks
+warnings, violet marks active shadow damage, and the pale green player outline marks
+successful-parry protection. CameraFollow exposes boss zoom controls and shows an
+offscreen boss direction cue.

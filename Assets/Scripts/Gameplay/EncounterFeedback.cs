@@ -24,7 +24,15 @@ namespace AscendJigoku.Gameplay
         private PlayerHealth player;
         private RawImage vignette;
 
-        private sealed class Spark { public Transform Transform; public SpriteRenderer Renderer; public Vector2 Velocity; public float Age, Life, Size; public Color Color; }
+        // One pooled death-burst particle (a tinted square sprite).
+        private sealed class Spark
+        {
+            public Transform Transform;
+            public SpriteRenderer Renderer;
+            public Vector2 Velocity;
+            public float Age, Life, Size;
+            public Color Color;
+        }
         private readonly List<Spark> sparks = new List<Spark>();
         private readonly Stack<Spark> sparePool = new Stack<Spark>();
 
@@ -44,7 +52,11 @@ namespace AscendJigoku.Gameplay
         private static void Boot() => _ = Instance;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { instance = null; CameraOffset = Vector3.zero; }
+        private static void ResetStatics()
+        {
+            instance = null;
+            CameraOffset = Vector3.zero;
+        }
 
         // ---------- Hooks ----------
 
@@ -55,10 +67,10 @@ namespace AscendJigoku.Gameplay
             Instance.vignettePulse = 1f;
         }
 
-         public static void OnEnemyAttack()
+        public static void OnEnemyAttack()
         {
-            Shake(0.35f); 
-            HitStop(0.09f); 
+            Shake(0.35f);
+            HitStop(0.09f);
         }
 
         public static void OnEnemyHit(CombatFeedback target, bool lethal)
@@ -68,11 +80,21 @@ namespace AscendJigoku.Gameplay
             if (lethal && target != null && !target.SkipDeathBurst) Instance.Burst(target);
         }
 
-        public static void OnParry() { Shake(0.35f); HitStop(0.09f); }
-        public static void OnPogo() { Shake(0.1f); HitStop(0.03f); }
+        public static void OnParry()
+        {
+            Shake(0.35f);
+            HitStop(0.09f);
+        }
+
+        public static void OnPogo()
+        {
+            Shake(0.1f);
+            HitStop(0.03f);
+        }
 
         // ---------- Primitives ----------
 
+        // Adds to the trauma meter (0..1); the camera offset scales with trauma squared and decays over time.
         public static void Shake(float amount)
         {
             if (GameSettings.ScreenShake <= 0 || amount <= 0) return;
@@ -80,6 +102,7 @@ namespace AscendJigoku.Gameplay
             self.trauma = Mathf.Clamp01(self.trauma + amount);
         }
 
+        // Briefly drops Time.timeScale to HitStopScale; Update() restores it once the unscaled timer runs out.
         public static void HitStop(float seconds)
         {
             if (!GameSettings.HitStop || seconds <= 0 || Time.timeScale <= 0) return;
@@ -97,13 +120,18 @@ namespace AscendJigoku.Gameplay
 
         private void Awake()
         {
-            if (instance != null && instance != this) { Destroy(gameObject); return; }
+            if (instance != null && instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
             instance = this;
             BuildVignette();
         }
 
         private void Update()
         {
+            // End the hit-stop, or repair a leftover hit-stop scale if something else (e.g. a menu) restored it.
             if (hitStopping && Time.unscaledTime >= hitStopUntil)
             {
                 hitStopping = false;
@@ -111,6 +139,7 @@ namespace AscendJigoku.Gameplay
             }
             else if (!hitStopping && IsHitStopScale(Time.timeScale)) Time.timeScale = GameSettings.GameplayTimeScale;
 
+            // Screen shake: Perlin noise sampled along unscaled time, read by the camera through CameraOffset.
             trauma = Mathf.MoveTowards(trauma, 0, Time.unscaledDeltaTime * ShakeDecayPerSecond);
             if (Time.timeScale <= 0 || trauma <= 0 || GameSettings.ScreenShake <= 0) CameraOffset = Vector3.zero;
             else
@@ -136,13 +165,16 @@ namespace AscendJigoku.Gameplay
             var imageObject = new GameObject("Vignette", typeof(RectTransform), typeof(RawImage));
             imageObject.transform.SetParent(canvasObject.transform, false);
             var rect = (RectTransform)imageObject.transform;
-            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
             vignette = imageObject.GetComponent<RawImage>();
             vignette.texture = ProceduralSprites.Vignette;
             vignette.raycastTarget = false;
             vignette.color = new Color(0.55f, 0.02f, 0.02f, 0);
         }
 
+        // Red edge glow: a steady tint at low health or death, plus a pulse after the player is hit.
         private void UpdateVignette()
         {
             if (vignette == null) return;
@@ -153,7 +185,7 @@ namespace AscendJigoku.Gameplay
             }
             vignettePulse = Mathf.MoveTowards(vignettePulse, 0, Time.unscaledDeltaTime * (GameSettings.ReduceFlashing ? 1.1f : 1.8f));
             float alpha = 0;
-            if (player != null && GameSettings.DamageVignette)
+            if (!VictoryFlow.IsPlaying && player != null && GameSettings.DamageVignette)
             {
                 int hp = player.CurrentHealth, max = Mathf.Max(1, player.MaxHealth);
                 bool low = hp > 0 && (hp == 1 || hp <= max / 3);
@@ -163,12 +195,15 @@ namespace AscendJigoku.Gameplay
                 float pulse = vignettePulse * (GameSettings.ReduceFlashing ? 0.25f : 0.42f);
                 alpha = Mathf.Clamp01(Mathf.Max(baseline, pulse));
             }
-            var color = vignette.color; color.a = alpha; vignette.color = color;
+            var color = vignette.color;
+            color.a = alpha;
+            vignette.color = color;
             vignette.enabled = alpha > 0.001f;
         }
 
         // ---------- Death burst ----------
 
+        // Sprays pooled sparks from the dying enemy, tinted from its sprite.
         private void Burst(CombatFeedback target)
         {
             var body = target.GetComponent<SpriteRenderer>();
@@ -184,10 +219,13 @@ namespace AscendJigoku.Gameplay
                 float angle = Random.Range(0f, Mathf.PI * 2);
                 float speed = Random.Range(3f, 8.5f);
                 spark.Velocity = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle) * 0.8f + 0.45f) * speed;
-                spark.Age = 0; spark.Life = Random.Range(0.35f, 0.65f); spark.Size = Random.Range(0.12f, 0.26f);
+                spark.Age = 0;
+                spark.Life = Random.Range(0.35f, 0.65f);
+                spark.Size = Random.Range(0.12f, 0.26f);
                 spark.Color = i % 3 == 0 ? new Color(1f, 0.55f, 0.15f) : Color.Lerp(tint, Color.white, 0.25f);
                 spark.Transform.position = center + (Vector3)(Random.insideUnitCircle * 0.25f);
-                spark.Renderer.sortingLayerID = layer; spark.Renderer.sortingOrder = order;
+                spark.Renderer.sortingLayerID = layer;
+                spark.Renderer.sortingOrder = order;
                 spark.Transform.gameObject.SetActive(true);
                 sparks.Add(spark);
             }
@@ -210,7 +248,11 @@ namespace AscendJigoku.Gameplay
                 spark.Age += dt;
                 if (spark.Age >= spark.Life || spark.Transform == null)
                 {
-                    if (spark.Transform != null) { spark.Transform.gameObject.SetActive(false); sparePool.Push(spark); }
+                    if (spark.Transform != null)
+                    {
+                        spark.Transform.gameObject.SetActive(false);
+                        sparePool.Push(spark);
+                    }
                     sparks.RemoveAt(i);
                     continue;
                 }
@@ -219,7 +261,9 @@ namespace AscendJigoku.Gameplay
                 spark.Transform.position += (Vector3)(spark.Velocity * dt);
                 float k = 1 - spark.Age / spark.Life;
                 spark.Transform.localScale = Vector3.one * (spark.Size * (0.4f + 0.6f * k));
-                var c = spark.Color; c.a = k; spark.Renderer.color = c;
+                var c = spark.Color;
+                c.a = k;
+                spark.Renderer.color = c;
             }
         }
     }

@@ -34,7 +34,9 @@ namespace AscendJigoku.Gameplay
         private void Awake()
         {
             confirm = new InputAction("TutorialConfirm", InputActionType.Button, "<Keyboard>/enter");
-            confirm.AddBinding("<Keyboard>/numpadEnter"); confirm.AddBinding("<Keyboard>/space"); confirm.AddBinding("<Gamepad>/buttonSouth");
+            confirm.AddBinding("<Keyboard>/numpadEnter");
+            confirm.AddBinding("<Keyboard>/space");
+            confirm.AddBinding("<Gamepad>/buttonSouth");
             confirm.Enable();
         }
 
@@ -48,8 +50,11 @@ namespace AscendJigoku.Gameplay
             var strip = MenuStyle.FullScreen(hud.transform, "Strip", new Color(0.04f, 0.02f, 0.02f, 0.62f), false);
             strip.raycastTarget = false;
             var stripRect = strip.rectTransform;
-            stripRect.anchorMin = new Vector2(0, 0); stripRect.anchorMax = new Vector2(1, 0); stripRect.pivot = new Vector2(0.5f, 0);
-            stripRect.sizeDelta = new Vector2(0, 104); stripRect.anchoredPosition = Vector2.zero;
+            stripRect.anchorMin = new Vector2(0, 0);
+            stripRect.anchorMax = new Vector2(1, 0);
+            stripRect.pivot = new Vector2(0.5f, 0);
+            stripRect.sizeDelta = new Vector2(0, 104);
+            stripRect.anchoredPosition = Vector2.zero;
             title = MenuStyle.Label(hud.transform, "Title", "", new Vector2(0, -292), new Vector2(1100, 30), 22, TextAnchor.MiddleCenter, MenuStyle.Ember);
             title.font = MenuStyle.TitleFont;
             body = MenuStyle.Label(hud.transform, "Text", "", new Vector2(0, -330), new Vector2(1180, 40), 28);
@@ -59,7 +64,8 @@ namespace AscendJigoku.Gameplay
             cover = Group(canvas, "Cover").gameObject.AddComponent<CanvasGroup>();
             MenuStyle.FullScreen(cover.transform, "Black", MenuStyle.Background);
             line = MenuStyle.Label(cover.transform, "Line", "", new Vector2(0, 10), new Vector2(900, 160), 36);
-            line.supportRichText = true; line.lineSpacing = 1.2f;
+            line.supportRichText = true;
+            line.lineSpacing = 1.2f;
             cover.alpha = 1;
 
             talk = Group(canvas, "Talk").gameObject.AddComponent<CanvasGroup>();
@@ -67,11 +73,15 @@ namespace AscendJigoku.Gameplay
             portraitGo.transform.SetParent(talk.transform, false);
             MenuStyle.Place((RectTransform)portraitGo.transform, new Vector2(0, 90), new Vector2(560, 420));
             portrait = portraitGo.GetComponent<Image>();
-            portrait.preserveAspect = true; portrait.raycastTarget = false;
+            portrait.preserveAspect = true;
+            portrait.raycastTarget = false;
             var panel = MenuStyle.FullScreen(talk.transform, "Panel", new Color(0.04f, 0.02f, 0.02f, 0.9f), false);
             var panelRect = panel.rectTransform;
-            panelRect.anchorMin = new Vector2(0.5f, 0); panelRect.anchorMax = new Vector2(0.5f, 0); panelRect.pivot = new Vector2(0.5f, 0);
-            panelRect.sizeDelta = new Vector2(1080, 190); panelRect.anchoredPosition = new Vector2(0, 40);
+            panelRect.anchorMin = new Vector2(0.5f, 0);
+            panelRect.anchorMax = new Vector2(0.5f, 0);
+            panelRect.pivot = new Vector2(0.5f, 0);
+            panelRect.sizeDelta = new Vector2(1080, 190);
+            panelRect.anchoredPosition = new Vector2(0, 40);
             panel.raycastTarget = false;
             speaker = MenuStyle.Label(talk.transform, "Speaker", "MEMENTO MORI", new Vector2(0, -190), new Vector2(980, 30), 24, TextAnchor.MiddleLeft, MenuStyle.Ember);
             speaker.font = MenuStyle.TitleFont;
@@ -80,7 +90,8 @@ namespace AscendJigoku.Gameplay
             talk.alpha = 0;
 
             skip = MenuStyle.Label(canvas, "Skip", "", Vector2.zero, new Vector2(520, 28), 18, TextAnchor.MiddleRight, MenuStyle.MutedText);
-            var skipRect = skip.rectTransform; skipRect.anchorMin = skipRect.anchorMax = skipRect.pivot = Vector2.one;
+            var skipRect = skip.rectTransform;
+            skipRect.anchorMin = skipRect.anchorMax = skipRect.pivot = Vector2.one;
             skipRect.anchoredPosition = new Vector2(-28, -24);
         }
 
@@ -91,40 +102,73 @@ namespace AscendJigoku.Gameplay
         public IEnumerator FadeCover(float to, float seconds)
         {
             float from = cover.alpha;
-            for (float t = 0; t < seconds; t += Time.unscaledDeltaTime) { cover.alpha = Mathf.Lerp(from, to, t / seconds); yield return null; }
+            for (float t = 0; t < seconds; t += Time.unscaledDeltaTime)
+            {
+                cover.alpha = Mathf.Lerp(from, to, t / seconds);
+                yield return null;
+            }
             cover.alpha = to;
         }
 
         public void SetCover(float alpha) => cover.alpha = alpha;
+
         public void ShowCoverText(bool on) { line.gameObject.SetActive(on); }
 
         // Lines fade in and out over black. Confirm moves on; otherwise each line times out.
         public IEnumerator Opening(string[] lines)
         {
-            cover.alpha = 1; line.gameObject.SetActive(true);
+            cover.alpha = 1;
+            line.gameObject.SetActive(true);
             foreach (string text in lines)
             {
-                line.text = text; SetLineAlpha(0);
-                for (float t = 0; t < 0.9f; t += Time.unscaledDeltaTime) { SetLineAlpha(t / 0.9f); yield return null; }
+                line.text = text;
+                SetLineAlpha(0);
+                for (float t = 0; t < 0.9f; t += Time.unscaledDeltaTime)
+                {
+                    SetLineAlpha(t / 0.9f);
+                    yield return null;
+                }
+
                 SetLineAlpha(1);
+                // Hold up to 3.6s; Confirm skips ahead, but only after 0.7s so a held key doesn't skip every line.
                 for (float t = 0; t < 3.6f && !(t > 0.7f && ConfirmPressed); t += Time.unscaledDeltaTime) yield return null;
-                for (float t = 0; t < 0.5f; t += Time.unscaledDeltaTime) { SetLineAlpha(1 - t / 0.5f); yield return null; }
+                for (float t = 0; t < 0.5f; t += Time.unscaledDeltaTime)
+                {
+                    SetLineAlpha(1 - t / 0.5f);
+                    yield return null;
+                }
             }
             line.gameObject.SetActive(false);
         }
 
-        private void SetLineAlpha(float a) { var c = line.color; c.a = a; line.color = c; }
+        private void SetLineAlpha(float a)
+        {
+            var c = line.color;
+            c.a = a;
+            line.color = c;
+        }
 
         // ---------- Lesson prompt ----------
 
         public void ShowPrompt(string heading, string text)
         {
-            hud.alpha = 1; title.text = heading; body.text = text; body.color = MenuStyle.TextColor; flashUntil = 0;
+            hud.alpha = 1;
+            title.text = heading;
+            body.text = text;
+            body.color = MenuStyle.TextColor;
+            flashUntil = 0;
         }
 
-        public void HidePrompt() { hud.alpha = 0; }
+        public void HidePrompt() { hud.alpha = 0; talk.alpha = 0; } // talk too: skipping mid-dialogue must not leave the box up
 
-        public void FlashDone(string text) { body.text = text; body.color = MenuStyle.Ember; flashUntil = Time.unscaledTime + 0.9f; }
+        // Briefly shows a completion message in ember color; Flashing stays true for 0.9s so the caller can wait.
+        public void FlashDone(string text)
+        {
+            body.text = text;
+            body.color = MenuStyle.Ember;
+            flashUntil = Time.unscaledTime + 0.9f;
+        }
+
         public bool Flashing => Time.unscaledTime < flashUntil;
 
         public void SetSkip(string label, float progress)
@@ -135,18 +179,25 @@ namespace AscendJigoku.Gameplay
 
         // ---------- Skeleton dialogue ----------
 
+        // Typewriter dialogue: Confirm finishes the current line, then advances. Fades the box in and out around it.
         public IEnumerator Talk(Sprite[] frames, string name, string[] lines, AudioClip voice)
         {
             speaker.text = name;
             next.text = $"{prompts.Confirm}: continue";
             portrait.enabled = frames != null && frames.Length > 0;
             talk.alpha = 0;
-            for (float t = 0; t < 0.5f; t += Time.unscaledDeltaTime) { talk.alpha = t / 0.5f; Pose(frames, 0, 0); yield return null; }
+            for (float t = 0; t < 0.5f; t += Time.unscaledDeltaTime)
+            {
+                talk.alpha = t / 0.5f;
+                Pose(frames, 0, 0);
+                yield return null;
+            }
             talk.alpha = 1;
             for (int i = 0; i < lines.Length; i++)
             {
                 float volume = AscendJigoku.Settings.GameSettings.SfxVolume;
-                if (voice != null) AudioSource.PlayClipAtPoint(voice, Camera.main != null ? Camera.main.transform.position : Vector3.zero, 0.8f * volume);
+                if (voice != null)
+                    AudioSource.PlayClipAtPoint(voice, Camera.main != null ? Camera.main.transform.position : Vector3.zero, 0.8f * volume);
                 float shown = 0, clock = 0;
                 string text = lines[i];
                 while (true)
@@ -163,7 +214,11 @@ namespace AscendJigoku.Gameplay
                     yield return null;
                 }
             }
-            for (float t = 0; t < 0.4f; t += Time.unscaledDeltaTime) { talk.alpha = 1 - t / 0.4f; yield return null; }
+            for (float t = 0; t < 0.4f; t += Time.unscaledDeltaTime)
+            {
+                talk.alpha = 1 - t / 0.4f;
+                yield return null;
+            }
             talk.alpha = 0;
         }
 

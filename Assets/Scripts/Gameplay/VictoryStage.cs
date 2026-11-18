@@ -100,6 +100,9 @@ namespace AscendJigoku.Gameplay
             }
         }
 
-        public void Destroy() { if (Root != null) Object.Destroy(Root); }
+        public void Destroy()
+        {
+            if (Root != null) Object.Destroy(Root);
+        }
     }
 }

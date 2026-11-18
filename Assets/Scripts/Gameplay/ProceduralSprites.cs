@@ -10,7 +10,11 @@ namespace AscendJigoku.Gameplay
         private static Texture2D vignette;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { square = exclamation = null; vignette = null; }
+        private static void ResetStatics()
+        {
+            square = exclamation = null;
+            vignette = null;
+        }
 
         public static Texture2D NewTexture(int width, int height, string name, TextureWrapMode wrap = TextureWrapMode.Clamp)
         {
@@ -28,7 +32,8 @@ namespace AscendJigoku.Gameplay
                 var texture = NewTexture(4, 4, "Generated square");
                 var pixels = new Color32[16];
                 for (int i = 0; i < pixels.Length; i++) pixels[i] = new Color32(255, 255, 255, 255);
-                texture.SetPixels32(pixels); texture.Apply(false, true);
+                texture.SetPixels32(pixels);
+                texture.Apply(false, true);
                 square = Sprite.Create(texture, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4);
                 square.name = "Generated square";
                 return square;
@@ -64,6 +69,7 @@ namespace AscendJigoku.Gameplay
                 for (int y = 0; y < h; y++)
                     for (int x = 0; x < w; x++)
                     {
+                        // Rows are listed top-down but texture y starts at the bottom, hence h - 1 - y.
                         char c = rows[h - 1 - y][x];
                         texture.SetPixel(x, y, c == 'x' ? fill : c == 'o' ? outline : clear);
                     }
@@ -88,11 +94,13 @@ namespace AscendJigoku.Gameplay
                     for (int x = 0; x < size; x++)
                     {
                         float dx = (x + 0.5f) / size * 2 - 1, dy = (y + 0.5f) / size * 2 - 1;
+                        // Slightly elliptical distance from the centre, eased in between radius 0.55 and 1.25.
                         float d = Mathf.Sqrt(dx * dx * 0.85f + dy * dy * 1.15f);
                         float a = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.55f, 1.25f, d));
                         pixels[y * size + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(a * 255));
                     }
-                vignette.SetPixels32(pixels); vignette.Apply(false, true);
+                vignette.SetPixels32(pixels);
+                vignette.Apply(false, true);
                 return vignette;
             }
         }

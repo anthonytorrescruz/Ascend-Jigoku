@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// Singleton that runs after all other scripts each frame (LateUpdate) and resolves every registered Swing:
+// pogo bounces, overlap hits, parry deflection, then applies queued damage. Created on first use via Instance.
 [DefaultExecutionOrder(1000)]
 public class CombatResolver : MonoBehaviour
 {
@@ -17,6 +19,8 @@ public class CombatResolver : MonoBehaviour
     private readonly List<Collider2D> hits = new List<Collider2D>();
     private readonly List<RaycastHit2D> walls = new List<RaycastHit2D>();
     private readonly List<PendingDamage> pending = new List<PendingDamage>();
+
+    // Damage found this frame but not yet applied, so all hits can be validated before any health changes.
     private struct PendingDamage
     {
         public CombatAttack.Swing Swing;
@@ -30,16 +34,37 @@ public class CombatResolver : MonoBehaviour
         public bool Apply;
         public bool IsContact;
     }
+
     public void Register(CombatAttack.Swing swing) => swings.Add(swing);
+
+    public static void ClearSceneCombat()
+    {
+        if (instance == null) return;
+        foreach (var swing in instance.swings)
+            if (swing.Owner != null) swing.Owner.Cancel(swing);
+        instance.swings.Clear();
+        instance.pending.Clear();
+    }
+
+    // Contact damage has no swing; EnemyContactDamage queues it here so it is applied with the rest of the frame.
     public void QueueContact(EnemyContactDamage source, PlayerHealth target, int damage, float now)
     {
         pending.Add(new PendingDamage { Contact = source, IsContact = true, Player = target, Amount = damage,
             KnockbackDirection = KnockbackDirection(source.transform.position.x, target) });
     }
+
     private void LateUpdate() => Resolve(Time.time);
+
     public void Resolve(float now)
     {
+        if (AscendJigoku.Gameplay.VictoryFlow.IsPlaying)
+        {
+            ClearSceneCombat();
+            return;
+        }
+
         if (swings.Count == 0 && pending.Count == 0) return;
+
         for (int i = 0; i < swings.Count; i++)
             if (swings[i].IsActive(now)) swings[i].RefreshBox();
 
@@ -58,6 +83,7 @@ public class CombatResolver : MonoBehaviour
             }
         }
 
+        // Swing boxes also need to hit trigger colliders (enemy/player hurtboxes may be triggers).
         bool previousTriggers = Physics2D.queriesHitTriggers;
         try
         {
@@ -74,7 +100,10 @@ public class CombatResolver : MonoBehaviour
                 for (int h = 0; h < hits.Count; h++) ResolveHit(swing, hits[h], now);
             }
         }
-        finally { Physics2D.queriesHitTriggers = previousTriggers; }
+        finally
+        {
+            Physics2D.queriesHitTriggers = previousTriggers;
+        }
 
         // Snapshot valid hits before changing health: a killing hit must not erase a simultaneous trade.
         for (int i = 0; i < pending.Count; i++)
@@ -84,6 +113,7 @@ public class CombatResolver : MonoBehaviour
                 && (!hit.IsContact || (hit.Contact != null && hit.Contact.isActiveAndEnabled && !hit.Contact.IsSuppressed(hit.Player, now)));
             pending[i] = hit;
         }
+
         // Commit enemy damage before player damage, which may reload the scene on death.
         for (int i = 0; i < pending.Count; i++)
             if (pending[i].Apply && pending[i].Enemy != null) ApplyEnemyHit(pending[i]);
@@ -91,9 +121,14 @@ public class CombatResolver : MonoBehaviour
             if (pending[i].Apply && pending[i].Player != null)
                 pending[i].Player.TakeCombatDamage(pending[i].Amount, pending[i].KnockbackDirection);
         pending.Clear();
+
+        // Drop finished, cancelled or orphaned swings.
         for (int i = swings.Count - 1; i >= 0; i--)
             if (swings[i].Owner == null || now >= swings[i].EndsAt || swings[i].Cancelled) swings.RemoveAt(i);
     }
+
+    // Filters one overlap result (self, wall in the way, outside a circle attack), then either triggers a pogo
+    // and queues enemy damage (player swings) or lets the player's parry deflect / queues player damage (enemy swings).
     private void ResolveHit(CombatAttack.Swing swing, Collider2D hit, float now)
     {
         if (hit == null || hit.transform.IsChildOf(swing.Owner.transform)
@@ -125,12 +160,15 @@ public class CombatResolver : MonoBehaviour
                 KnockbackDirection = KnockbackDirection(swing.Owner.transform.position.x, player) });
         }
     }
+
+    // Applies the swing's knockback multiplier on top of whatever knockback TakeCombatDamage already applied.
     private static void ApplyEnemyHit(PendingDamage hit)
     {
         if (!hit.Enemy.TakeCombatDamage(hit.Amount, hit.EnemyKnockback) || Mathf.Approximately(hit.KnockbackScale, 1) || hit.Enemy.CurrentHealth <= 0) return;
         var body = hit.Enemy.GetComponent<Rigidbody2D>();
         if (body != null && body.bodyType == RigidbodyType2D.Dynamic) body.linearVelocity *= hit.KnockbackScale;
     }
+
     // Erases enemy projectiles (swings whose owner is not an enemy body) inside the area.
     public void CancelProjectiles(Rect area)
     {
@@ -139,6 +177,9 @@ public class CombatResolver : MonoBehaviour
                 && swing.Owner.GetComponent<EnemyHealth>() == null && swing.Box.Overlaps(area))
                 swing.Owner.Cancel(swing);
     }
+
+    // True if no terrain lies between the swing owner and the point, so attacks cannot hit through walls.
+    // The target's own collider and the owner's children are ignored.
     private bool HasClearPath(CombatAttack.Swing swing, Vector2 point, Collider2D target = null)
     {
         var filter = new ContactFilter2D { useTriggers = false };
@@ -150,6 +191,8 @@ public class CombatResolver : MonoBehaviour
             if (wall.collider != target && !wall.collider.transform.IsChildOf(swing.Owner.transform)) return false;
         return true;
     }
+
+    // -1 or +1: pushes the player away from the source; falls back to the player's facing if exactly overlapping.
     private static float KnockbackDirection(float sourceX, PlayerHealth player)
     {
         float delta = player.transform.position.x - sourceX;
@@ -157,6 +200,9 @@ public class CombatResolver : MonoBehaviour
         var controller = player.GetComponent<PlayerController>();
         return controller != null && controller.IsFacingRight ? -1f : 1f;
     }
+
+    // Bounces the player off an airborne down-strike (once per swing). If an enemy swing was hit, it is cancelled
+    // and the enemy's contact damage is briefly suppressed so the bounce does not also hurt the player.
     private static bool TryPogo(CombatAttack.Swing player, CombatAttack.Swing enemy, float now)
     {
         if (player.Direction != CombatDirection.Down || player.PogoTriggered || player.Owner == null
@@ -171,9 +217,14 @@ public class CombatResolver : MonoBehaviour
         }
         return true;
     }
+
     private static void SuppressContact(EnemyContactDamage contact, PlayerHealth player, float until)
     {
         if (contact != null && player != null) contact.Suppress(player, until);
     }
-    private void OnDestroy() { if (instance == this) instance = null; }
+
+    private void OnDestroy()
+    {
+        if (instance == this) instance = null;
+    }
 }

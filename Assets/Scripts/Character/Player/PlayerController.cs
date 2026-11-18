@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
 
+// Player movement: run, jump/double jump, dash, wall slide/jump and knockback. Reads input from PlayerActions;
+// combat scripts call the public helpers below (animations, bounces, knockback). Timers are in seconds unless noted.
 [RequireComponent(typeof(Rigidbody2D))]
 public class PlayerController : MonoBehaviour
 {
@@ -15,7 +17,9 @@ public class PlayerController : MonoBehaviour
     [Header("Jump")]
     [SerializeField] private float jumpForce = 10;
     [SerializeField] private int maxJumpCount = 2;
+    // Seconds after walking off a ledge during which the first jump is still allowed.
     [SerializeField] private float coyoteTime = 0.2f;
+    // Seconds a jump press is remembered so pressing slightly before landing still jumps.
     [SerializeField] private float jumpBufferTime = 0.2f;
     [Tooltip("Releasing jump early multiplies upward speed by this. 1 turns variable jump height off.")]
     [Range(0.1f, 1), SerializeField] private float jumpCutMultiplier = 0.5f;
@@ -23,8 +27,10 @@ public class PlayerController : MonoBehaviour
     [Min(0), SerializeField] private float maxFallSpeed = 48;
     [Tooltip("How far (world units) a head bonk on a ledge corner is nudged sideways instead. 0 = off.")]
     [Min(0), SerializeField] private float cornerCorrection = 0.3f;
+    // Count down in seconds; > 0 means the coyote window / buffered jump press is still live.
     private float coyoteTimeCounter;
     private float jumpBufferCounter;
+    // True from jump start until released/landed, so only the first release cuts the jump short.
     private bool canCutJump;
     private readonly RaycastHit2D[] cornerHits = new RaycastHit2D[8];
     [SerializeField] private LayerMask groundLayer;
@@ -32,9 +38,11 @@ public class PlayerController : MonoBehaviour
     [Min(0), SerializeField] private float knockbackSpeed = 8;
     [Min(0), SerializeField] private float knockbackDuration = 0.15f;
     private PlayerActions controls;
-    private Vector2 moveInput, velocityRef;
+    private Vector2 moveInput, velocityRef; // velocityRef is the SmoothDamp state for horizontal movement
+    // Jumps used since last landing. Walking off a ledge counts as the first jump once coyote time runs out.
     private int jumpCount;
     private bool wasGrounded;
+    // Time.time at which the knockback push ends.
     private float knockbackEndsAt = float.NegativeInfinity;
     private float knockbackVelocity;
     private Collider2D bodyShape;
@@ -57,9 +65,12 @@ public class PlayerController : MonoBehaviour
     public float DashCycleSeconds => dashDuration + dashCooldown;
     [Header("Dash Functionality")]
     [SerializeField] private float dashSpeed = 20f;
+    // Seconds of dash movement, then seconds before the next dash is allowed.
     [SerializeField] private float dashDuration = 0.2f;
     [SerializeField] private float dashCooldown = 1f;
+    // Fraction of dashSpeed left at the end of the dash.
     [Range(0, 1), SerializeField] private float dashEndSpeed = 0.4f;
+    // Air dash: fraction of vertical speed kept, and gravity multiplier while dashing.
     [Range(0, 1), SerializeField] private float dashAirCarry = 0.5f;    
     [Range(0, 1), SerializeField] private float dashAirGravity = 0.3f;
 
@@ -74,12 +85,14 @@ public class PlayerController : MonoBehaviour
 
     [SerializeField] private float wallJumpForceX = 8f;
     [SerializeField] private float wallJumpForceY = 12f;
+    // Seconds after a wall jump during which horizontal input is ignored.
     [SerializeField] private float wallJumpTime = 0.2f;
     [SerializeField] private float wallSlideSpeed = 2f;
 
     [SerializeField] private bool isTouchingWall;
     [Header("Attack")]
     [Min(0), SerializeField] private float attackFacingExtra = 0f;
+    // Time.time until which the player can't turn around, so a swing keeps its facing.
     private float attackFacingLockUntil;
     private CombatAttack combatAttack;
     private bool isWallSliding;
@@ -113,7 +126,11 @@ public class PlayerController : MonoBehaviour
         normalGravity = rb.gravityScale;
         foreach (var c in GetComponents<Collider2D>())
         {
-            if (c.enabled && !c.isTrigger) { bodyShape = c; break; }
+            if (c.enabled && !c.isTrigger)
+            {
+                bodyShape = c;
+                break;
+            }
         }
         playerSpell = GetComponent<PlayerSpell>();
         health = GetComponent<PlayerHealth>();
@@ -122,7 +139,11 @@ public class PlayerController : MonoBehaviour
     }
     private void OnEnable()
     {
-        if(controls == null) { controls = new PlayerActions(); AscendJigoku.Settings.KeybindSettings.Register(controls.asset); }
+        if(controls == null)
+        {
+            controls = new PlayerActions();
+            AscendJigoku.Settings.KeybindSettings.Register(controls.asset);
+        }
         controls.Enable();
         controls.PlayerInput.Jump.performed += OnJump;
         controls.PlayerInput.Jump.canceled += OnJumpReleased;
@@ -180,7 +201,11 @@ public class PlayerController : MonoBehaviour
     }
     private void CheckWall()
     {
-        if (wallCheck == null) { isTouchingWall = false; return; }
+        if (wallCheck == null)
+        {
+            isTouchingWall = false;
+            return;
+        }
         isTouchingWall = Physics2D.Raycast(wallCheck.position, Vector2.right * facingDirection, wallCheckDistance, wallLayer);
     }
 
@@ -205,6 +230,7 @@ public class PlayerController : MonoBehaviour
         
     }
 
+    // Locks facing for the attack's startup + active frames (converted to seconds) so the swing can't be turned mid-hit.
     public void PlayAttackAnimation()
     {
         if (animator == null) return;
@@ -233,6 +259,7 @@ public class PlayerController : MonoBehaviour
     {
         if (animator != null) animator.Play(IdleStateHash, 0, 0f);
     }
+    // Refills coyote time while grounded and counts both timers down in the air.
     private void CalculateCoyoteAndJumpBufferTime(bool grounded)
     {
         if (grounded) coyoteTimeCounter = coyoteTime;
@@ -271,6 +298,7 @@ public class PlayerController : MonoBehaviour
         transform.localScale = scale;
     }
 
+    // Runs every frame; only acts while a jump press is buffered. Wall jump > first jump (needs coyote time) > extra jumps.
     private void HandleJump()
     {
         if(jumpBufferCounter <= 0) return;
@@ -321,6 +349,7 @@ public class PlayerController : MonoBehaviour
         StartCoroutine(WallJumpLock());
     }
 
+    // Blocks horizontal control briefly so the wall-jump push isn't instantly overridden by input.
     private IEnumerator WallJumpLock()
     {
         isWallJumping = true;
@@ -358,7 +387,11 @@ public class PlayerController : MonoBehaviour
         if (!CeilingAhead(b, 0, rise)) return;
         for (float d = 0.05f; d <= cornerCorrection; d += 0.05f)
             for (int sign = -1; sign <= 1; sign += 2)
-                if (!CeilingAhead(b, sign * d, rise)) { rb.position += new Vector2(sign * d, 0); return; }
+                if (!CeilingAhead(b, sign * d, rise))
+                {
+                    rb.position += new Vector2(sign * d, 0);
+                    return;
+                }
     }
 
     private bool CeilingAhead(Bounds b, float dx, float rise)
@@ -367,10 +400,12 @@ public class PlayerController : MonoBehaviour
         filter.SetLayerMask(groundLayer);
         int count = Physics2D.BoxCast(new Vector2(b.center.x + dx, b.center.y), b.size * 0.95f, 0, Vector2.up, filter, cornerHits, rise);
         for (int i = 0; i < count; i++)
-            if (cornerHits[i].collider != null && !cornerHits[i].collider.usedByEffector && cornerHits[i].collider != bodyShape) return true;
+            if (cornerHits[i].collider != null && !cornerHits[i].collider.usedByEffector && cornerHits[i].collider != bodyShape)
+                return true;
         return false;
     }
 
+    // Grounded = touching a mostly upward-facing surface at the feet, and not moving up.
     private bool CheckGrounded()
     {
         if (rb == null || bodyShape == null || !bodyShape.enabled || !rb.simulated || rb.linearVelocityY > 0.1f) return false;
@@ -386,7 +421,11 @@ public class PlayerController : MonoBehaviour
     private void FixedUpdate()
     {
         if (IsKnockedBack)
-        { rb.linearVelocityX = knockbackVelocity; velocityRef.x = 0; return; }
+        {
+            rb.linearVelocityX = knockbackVelocity;
+            velocityRef.x = 0;
+            return;
+        }
 
         if(isDashing) return;
         CorrectCorner();
@@ -396,6 +435,7 @@ public class PlayerController : MonoBehaviour
         float inputX = moveInput.x;
         if (playerSpell != null && playerSpell.IsFocusing) inputX *= playerSpell.FocusMovementMultiplier;
 
+        // Don't push into a wall in the air, so the player doesn't stick to it.
         if(isTouchingWall && !IsGrounded && inputX * facingDirection > 0)
         {
             inputX = 0;
@@ -440,6 +480,8 @@ public class PlayerController : MonoBehaviour
         StartCoroutine(Dash());
         CombatFeedback.PlayClip(dashClip, dashVolume);
     }
+
+    // Dash lasts dashDuration seconds with speed easing down to dashEndSpeed, then waits dashCooldown before canDash returns.
     IEnumerator Dash()
     {
         canDash = false;
@@ -482,6 +524,7 @@ public class PlayerController : MonoBehaviour
         yield return new WaitForSeconds(dashCooldown);
         canDash = true;
     }
+
     public void PogoBounce()
     {
         // Pogo neither spends nor restores a jump.

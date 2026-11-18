@@ -34,14 +34,34 @@ public sealed class PillarEnvironment : MonoBehaviour
     [Tooltip("Ordered by Starts At (fraction of the pillar height). Titles are placeholders.")]
     public Zone[] zones =
     {
-        new Zone { title = "THE CINDER PIT", startsAt = 0f, sky = new Color(0.12f, 0.04f, 0.035f), rockTint = new Color(1.08f, 0.86f, 0.8f), rockDesaturate = 0f,
-                   farLayer = new Color(0.24f, 0.07f, 0.055f), midLayer = new Color(0.16f, 0.05f, 0.04f), embers = new Color(1f, 0.5f, 0.15f), emberDensity = 1f },
-        new Zone { title = "ASHEN STAIR", startsAt = 0.25f, sky = new Color(0.085f, 0.072f, 0.07f), rockTint = new Color(1f, 0.98f, 0.97f), rockDesaturate = 0.7f,
-                   farLayer = new Color(0.17f, 0.14f, 0.135f), midLayer = new Color(0.11f, 0.09f, 0.09f), embers = new Color(0.75f, 0.7f, 0.65f), emberDensity = 0.65f },
-        new Zone { title = "BONE GALLERY", startsAt = 0.5f, sky = new Color(0.07f, 0.06f, 0.085f), rockTint = new Color(1.3f, 1.2f, 1.02f), rockDesaturate = 0.6f,
-                   farLayer = new Color(0.15f, 0.13f, 0.17f), midLayer = new Color(0.1f, 0.085f, 0.12f), embers = new Color(0.95f, 0.88f, 0.72f), emberDensity = 0.35f },
-        new Zone { title = "GATE OF JIGOKU", startsAt = 0.75f, sky = new Color(0.05f, 0.03f, 0.075f), rockTint = new Color(0.95f, 0.78f, 1.2f), rockDesaturate = 0.5f,
-                   farLayer = new Color(0.14f, 0.06f, 0.19f), midLayer = new Color(0.09f, 0.04f, 0.12f), embers = new Color(0.85f, 0.4f, 1f), emberDensity = 0.55f },
+        new Zone
+        {
+            title = "THE CINDER PIT", startsAt = 0f, sky = new Color(0.12f, 0.04f, 0.035f),
+            rockTint = new Color(1.08f, 0.86f, 0.8f), rockDesaturate = 0f,
+            farLayer = new Color(0.24f, 0.07f, 0.055f), midLayer = new Color(0.16f, 0.05f, 0.04f),
+            embers = new Color(1f, 0.5f, 0.15f), emberDensity = 1f
+        },
+        new Zone
+        {
+            title = "ASHEN STAIR", startsAt = 0.25f, sky = new Color(0.085f, 0.072f, 0.07f),
+            rockTint = new Color(1f, 0.98f, 0.97f), rockDesaturate = 0.7f,
+            farLayer = new Color(0.17f, 0.14f, 0.135f), midLayer = new Color(0.11f, 0.09f, 0.09f),
+            embers = new Color(0.75f, 0.7f, 0.65f), emberDensity = 0.65f
+        },
+        new Zone
+        {
+            title = "BONE GALLERY", startsAt = 0.5f, sky = new Color(0.07f, 0.06f, 0.085f),
+            rockTint = new Color(1.3f, 1.2f, 1.02f), rockDesaturate = 0.6f,
+            farLayer = new Color(0.15f, 0.13f, 0.17f), midLayer = new Color(0.1f, 0.085f, 0.12f),
+            embers = new Color(0.95f, 0.88f, 0.72f), emberDensity = 0.35f
+        },
+        new Zone
+        {
+            title = "GATE OF JIGOKU", startsAt = 0.75f, sky = new Color(0.05f, 0.03f, 0.075f),
+            rockTint = new Color(0.95f, 0.78f, 1.2f), rockDesaturate = 0.5f,
+            farLayer = new Color(0.14f, 0.06f, 0.19f), midLayer = new Color(0.09f, 0.04f, 0.12f),
+            embers = new Color(0.85f, 0.4f, 1f), emberDensity = 0.55f
+        },
     };
     [Range(0, 0.1f), Tooltip("Blend width either side of a zone boundary, as a fraction of pillar height.")]
     public float zoneBlend = 0.03f;
@@ -70,12 +90,14 @@ public sealed class PillarEnvironment : MonoBehaviour
 
     private VerticalLevelGenerator generator;
     private Camera view;
-    private const int LayerCount = 3;
-    private static readonly int[] LayerPpu = { 8, 12, 16 };
-    private static readonly int[] LayerOrder = { -200, -150, -110 };
-    private static readonly float[] ZoneGlow = { 0.34f, 0.07f, 0.07f, 0.16f };
+    private const int LayerCount = 3;   // far, mid, near
+    private static readonly int[] LayerPpu = { 8, 12, 16 };   // pixels per unit: farther layers are bigger and chunkier
+    private static readonly int[] LayerOrder = { -200, -150, -110 };   // sorting orders
+    private static readonly float[] ZoneGlow = { 0.34f, 0.07f, 0.07f, 0.16f };   // sky glow strength per zone
+    // Two renderers per layer: [l, 0] shows the current zone, [l, 1] the next one cross-fading in over it.
     private readonly SpriteRenderer[,] layers = new SpriteRenderer[LayerCount, 2];
-    private readonly Sprite[,] layerSprites = new Sprite[LayerCount, 4];
+    private readonly Sprite[,] layerSprites = new Sprite[LayerCount, 4];   // lazily built tile per layer and zone
+    // Textures and sprites created here, destroyed with this component.
     private readonly List<UnityEngine.Object> owned = new List<UnityEngine.Object>();
     private SpriteRenderer glow, falls, fog, fogNear, gate;
     private int seed;
@@ -84,7 +106,13 @@ public sealed class PillarEnvironment : MonoBehaviour
     private float titleAge = float.PositiveInfinity;
     private int highestZoneShown = -1;
 
-    private sealed class Ember { public Transform Transform; public SpriteRenderer Renderer; public Vector2 Velocity; public float Phase, Age, Life, Size; }
+    private sealed class Ember
+    {
+        public Transform Transform;
+        public SpriteRenderer Renderer;
+        public Vector2 Velocity;
+        public float Phase, Age, Life, Size;
+    }
 
     // ---------- Install ----------
 
@@ -116,7 +144,8 @@ public sealed class PillarEnvironment : MonoBehaviour
     private void OnDestroy()
     {
         if (Active == this) Active = null;
-        foreach (var o in owned) if (o != null) Destroy(o);
+        foreach (var o in owned)
+            if (o != null) Destroy(o);
     }
 
     private void Start()
@@ -147,20 +176,33 @@ public sealed class PillarEnvironment : MonoBehaviour
     private int ZoneIndex(float fraction)
     {
         int index = 0;
-        for (int i = 0; i < zones.Length; i++) if (fraction >= zones[i].startsAt) index = i;
+        for (int i = 0; i < zones.Length; i++)
+            if (fraction >= zones[i].startsAt) index = i;
+
         return index;
     }
 
-    // Blends the zone below/above near a boundary.
+    // Finds the two zones to blend at this height fraction: the result is Lerp(a, b, t). Away from a boundary a == b and t = 0;
+    // within zoneBlend of one, t runs 0..1 across the boundary (it is 0.5 exactly on it).
     private void Sample(float fraction, out Zone a, out Zone b, out float t)
     {
         int i = ZoneIndex(fraction);
-        a = b = zones[i]; t = 0;
+        a = b = zones[i];
+        t = 0;
         if (zoneBlend <= 0) return;
         if (i + 1 < zones.Length && fraction > zones[i + 1].startsAt - zoneBlend)
-        { b = zones[i + 1]; t = Mathf.InverseLerp(zones[i + 1].startsAt - zoneBlend, zones[i + 1].startsAt + zoneBlend, fraction); }
+        {
+            // Just below the next zone's start.
+            b = zones[i + 1];
+            t = Mathf.InverseLerp(zones[i + 1].startsAt - zoneBlend, zones[i + 1].startsAt + zoneBlend, fraction);
+        }
         else if (i > 0 && fraction < zones[i].startsAt + zoneBlend)
-        { a = zones[i - 1]; b = zones[i]; t = Mathf.InverseLerp(zones[i].startsAt - zoneBlend, zones[i].startsAt + zoneBlend, fraction); }
+        {
+            // Just above this zone's start.
+            a = zones[i - 1];
+            b = zones[i];
+            t = Mathf.InverseLerp(zones[i].startsAt - zoneBlend, zones[i].startsAt + zoneBlend, fraction);
+        }
     }
 
     // Called by the generator for every landing. Deterministic, so rebuilt chunks match.
@@ -186,7 +228,8 @@ public sealed class PillarEnvironment : MonoBehaviour
     // Lava-vein colour and how often veins appear, following the zone's ember settings.
     public static void GlowAt(float localHeight, out Color color, out float density)
     {
-        color = new Color(1f, 0.5f, 0.15f); density = 0.8f;
+        color = new Color(1f, 0.5f, 0.15f);
+        density = 0.8f;
         var self = Active;
         if (self == null || self.zones == null || self.zones.Length == 0) return;
         self.Sample(Mathf.Clamp01(localHeight / Mathf.Max(1, self.PillarHeight)), out var a, out var b, out float t);
@@ -194,16 +237,22 @@ public sealed class PillarEnvironment : MonoBehaviour
         density = Mathf.Lerp(a.emberDensity, b.emberDensity, t);
     }
 
+    // Desaturates toward grey (luma weights 0.3 / 0.59 / 0.11), then multiplies by the zone's rock tint.
     private static Color Tint(Color c, Zone zone)
     {
         float luminance = c.r * 0.3f + c.g * 0.59f + c.b * 0.11f;
         var grey = new Color(luminance, luminance, luminance, c.a);
         var mixed = Color.Lerp(c, grey, zone.rockDesaturate);
-        return new Color(Mathf.Clamp01(mixed.r * zone.rockTint.r), Mathf.Clamp01(mixed.g * zone.rockTint.g), Mathf.Clamp01(mixed.b * zone.rockTint.b), c.a);
+        return new Color(
+            Mathf.Clamp01(mixed.r * zone.rockTint.r),
+            Mathf.Clamp01(mixed.g * zone.rockTint.g),
+            Mathf.Clamp01(mixed.b * zone.rockTint.b),
+            c.a);
     }
 
     // ---------- Frame ----------
 
+    // Runs after the camera moves: sets sky colour, then moves the backdrop, embers and zone title to follow.
     private void LateUpdate()
     {
         if (view == null) view = Camera.main;
@@ -217,10 +266,13 @@ public sealed class PillarEnvironment : MonoBehaviour
         Vector2 viewSize = new Vector2(viewHeight * view.aspect, viewHeight);
         if (parallax) UpdateBackdrop(cam, viewSize, fraction, a, b, t);
 
-        if (ambientEmbers) UpdateEmbers(cam, viewSize, Color.Lerp(a.embers, b.embers, t), Mathf.Lerp(a.emberDensity, b.emberDensity, t));
+        if (ambientEmbers)
+            UpdateEmbers(cam, viewSize, Color.Lerp(a.embers, b.embers, t), Mathf.Lerp(a.emberDensity, b.emberDensity, t));
         UpdateTitle();
     }
 
+    // Tiles a layer over the whole view and positions it so the tile pattern scrolls at (1 - factor) of the world speed.
+    // scroll adds a time-based drift (fog sideways, lava falls downward).
     private static void PlaceLayer(SpriteRenderer layer, Vector2 tile, float factor, Vector2 cam, Vector2 viewSize, Vector2 scroll)
     {
         // Snap the tiled sprite to whole tiles so its content appears to move at (1 - factor) of world speed.
@@ -236,7 +288,8 @@ public sealed class PillarEnvironment : MonoBehaviour
     private Sprite MakeSprite(Texture2D texture, int ppu)
     {
         var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f), ppu, 0, SpriteMeshType.FullRect);
-        owned.Add(texture); owned.Add(sprite);
+        owned.Add(texture);
+        owned.Add(sprite);
         return sprite;
     }
 
@@ -246,7 +299,12 @@ public sealed class PillarEnvironment : MonoBehaviour
         go.transform.SetParent(transform, false);
         var renderer = go.GetComponent<SpriteRenderer>();
         renderer.sprite = sprite;
-        if (tiled) { renderer.drawMode = SpriteDrawMode.Tiled; renderer.tileMode = SpriteTileMode.Continuous; }
+        if (tiled)
+        {
+            renderer.drawMode = SpriteDrawMode.Tiled;
+            renderer.tileMode = SpriteTileMode.Continuous;
+        }
+
         renderer.sortingOrder = order;
         return renderer;
     }
@@ -260,9 +318,11 @@ public sealed class PillarEnvironment : MonoBehaviour
         fogNear = NewRenderer("Fog near", MakeSprite(fogTexture, 6), -92, true);
         gate = NewRenderer("Giant gate", MakeSprite(BackdropArt.GiantGate(zones[zones.Length - 1].sky), 8), -195, false);
         for (int l = 0; l < LayerCount; l++)
-            for (int k = 0; k < 2; k++) layers[l, k] = NewRenderer($"Backdrop {l}{(k == 0 ? "a" : "b")}", ZoneSprite(l, 0), LayerOrder[l] + k, true);
+            for (int k = 0; k < 2; k++)
+                layers[l, k] = NewRenderer($"Backdrop {l}{(k == 0 ? "a" : "b")}", ZoneSprite(l, 0), LayerOrder[l] + k, true);
     }
 
+    // Builds the tile for (layer, zone) the first time it is needed, then reuses it.
     private Sprite ZoneSprite(int layer, int zone)
     {
         if (layerSprites[layer, zone] != null) return layerSprites[layer, zone];
@@ -270,24 +330,28 @@ public sealed class PillarEnvironment : MonoBehaviour
         return layerSprites[layer, zone] = MakeSprite(BackdropArt.Layer(zone, layer, seed, z.sky, LayerTone(z, layer)), LayerPpu[layer]);
     }
 
-    private static Color LayerTone(Zone zone, int layer) => layer == 0 ? zone.farLayer : layer == 1 ? zone.midLayer : Color.Lerp(zone.midLayer, Color.black, 0.35f);
+    // Silhouette colour per depth: far and mid come from the zone, the near layer is the mid colour darkened by 35%.
+    private static Color LayerTone(Zone zone, int layer) =>
+        layer == 0 ? zone.farLayer : layer == 1 ? zone.midLayer : Color.Lerp(zone.midLayer, Color.black, 0.35f);
 
+    // Each frame: cross-fade the layer tiles between the two blended zones (a below, b above), then place glow, lava, fog and gate.
     private void UpdateBackdrop(Vector2 cam, Vector2 viewSize, float fraction, Zone a, Zone b, float t)
     {
         int ia = Mathf.Min(Array.IndexOf(zones, a), 3), ib = Mathf.Min(Array.IndexOf(zones, b), 3);
         float time = Time.time;
         float pulse = GameSettings.ReduceFlashing ? 1 : 1 + 0.12f * Mathf.Sin(time * 0.8f);
-        float[] factors = { farFactor, midFactor, nearFactor };
         for (int l = 0; l < LayerCount; l++)
         {
             var tile = Vector2.one * (BackdropArt.Size / (float)LayerPpu[l]);
-            var back = layers[l, 0]; var front = layers[l, 1];
+            var back = layers[l, 0];
+            var front = layers[l, 1];
             back.sprite = ZoneSprite(l, ia);
             front.sprite = ZoneSprite(l, ib);
             front.enabled = ib != ia && t > 0.01f;
             front.color = new Color(1, 1, 1, t);
-            PlaceLayer(back, tile, factors[l], cam, viewSize, Vector2.zero);
-            if (front.enabled) PlaceLayer(front, tile, factors[l], cam, viewSize, Vector2.zero);
+            float factor = l == 0 ? farFactor : l == 1 ? midFactor : nearFactor;
+            PlaceLayer(back, tile, factor, cam, viewSize, Vector2.zero);
+            if (front.enabled) PlaceLayer(front, tile, factor, cam, viewSize, Vector2.zero);
         }
 
         // Sky glow: zone colour from below, pooled magma near the pillar base.
@@ -296,10 +360,11 @@ public sealed class PillarEnvironment : MonoBehaviour
         glowColor.a = Mathf.Clamp01(strength * glowStrength * pulse);
         glow.color = glowColor;
         glow.transform.position = new Vector3(cam.x, cam.y, 10);
+        // The glow texture is 1 x 64 pixels (1 pixel = 1 unit at ppu 1), hence the / 64 on the height.
         glow.transform.localScale = new Vector3(viewSize.x * 1.4f, viewSize.y * 1.4f / 64, 1); // oversized so its edges never show
 
         // Lava falls belong to the Cinder Pit.
-        float lava = (ia == 0 ? 1 - t : 0) + (ib == 0 ? t : 0);
+        float lava = (ia == 0 ? 1 - t : 0) + (ib == 0 ? t : 0);   // how much of the blend is the Cinder Pit
         falls.enabled = lava > 0.01f;
         if (falls.enabled)
         {
@@ -327,11 +392,12 @@ public sealed class PillarEnvironment : MonoBehaviour
         }
     }
 
-    private static readonly Color Accents0 = new Color(0.95f, 0.38f, 0.12f);
+    private static readonly Color Accents0 = new Color(0.95f, 0.38f, 0.12f);   // lava colour, same as BackdropArt's zone 0 accent
     private static readonly float[] FogDensity = { 0.5f, 1f, 0.6f, 0.9f };
 
     // ---------- Embers ----------
 
+    // Keeps up to maxEmbers drifting sparks around the camera, scaled by zone density; extras are retired as they finish or leave.
     private void UpdateEmbers(Vector2 cam, Vector2 viewSize, Color color, float density)
     {
         int wanted = Mathf.RoundToInt(maxEmbers * Mathf.Clamp01(density));
@@ -349,12 +415,19 @@ public sealed class PillarEnvironment : MonoBehaviour
             e.Transform.position = p;
             if (!bounds.Contains(p) || e.Age >= e.Life)
             {
-                if (retire) { e.Renderer.enabled = false; continue; }
+                if (retire)
+                {
+                    e.Renderer.enabled = false;
+                    continue;
+                }
+
                 Respawn(e, cam, viewSize, !bounds.Contains(p) && Mathf.Abs(p.y - cam.y) > viewSize.y);
             }
             e.Renderer.enabled = !retire || e.Age < e.Life;
             float fade = Mathf.Min(1, e.Age / 0.6f) * Mathf.Clamp01((e.Life - e.Age) / 0.8f);
-            var c = color; c.a = 0.75f * fade; e.Renderer.color = c;
+            var c = color;
+            c.a = 0.75f * fade;
+            e.Renderer.color = c;
             e.Transform.localScale = Vector3.one * e.Size;
         }
     }
@@ -371,6 +444,7 @@ public sealed class PillarEnvironment : MonoBehaviour
         return ember;
     }
 
+    // Re-seeds an ember: anywhere in view, or just below the bottom edge so it rises into view.
     private static void Respawn(Ember e, Vector2 cam, Vector2 viewSize, bool anywhere)
     {
         float x = cam.x + UnityEngine.Random.Range(-0.5f, 0.5f) * viewSize.x;
@@ -378,7 +452,9 @@ public sealed class PillarEnvironment : MonoBehaviour
         e.Transform.position = new Vector3(x, y, 5);
         e.Velocity = new Vector2(UnityEngine.Random.Range(-0.3f, 0.3f), UnityEngine.Random.Range(0.6f, 1.8f));
         e.Phase = UnityEngine.Random.Range(0f, 6.283f);
-        e.Age = 0; e.Life = UnityEngine.Random.Range(4f, 9f); e.Size = UnityEngine.Random.Range(0.06f, 0.14f);
+        e.Age = 0;
+        e.Life = UnityEngine.Random.Range(4f, 9f);
+        e.Size = UnityEngine.Random.Range(0.06f, 0.14f);
     }
 
     // ---------- Zone title ----------
@@ -390,6 +466,7 @@ public sealed class PillarEnvironment : MonoBehaviour
         zoneTitle.color = new Color(1, 1, 1, 0);
     }
 
+    // Shows a zone's name the first time the player reaches it: 0.6 s fade in, hold until 2.4 s, 0.9 s fade out. Uses unscaled time.
     private void UpdateTitle()
     {
         if (zoneTitle == null || generator == null || generator.Player == null) return;
@@ -403,7 +480,9 @@ public sealed class PillarEnvironment : MonoBehaviour
         if (float.IsPositiveInfinity(titleAge)) return;
         titleAge += Time.unscaledDeltaTime;
         float alpha = titleAge < 0.6f ? titleAge / 0.6f : titleAge < 2.4f ? 1 : Mathf.Clamp01(1 - (titleAge - 2.4f) / 0.9f);
-        var c = zoneTitle.color; c.a = alpha * 0.85f; zoneTitle.color = c;
+        var c = zoneTitle.color;
+        c.a = alpha * 0.85f;
+        zoneTitle.color = c;
         if (alpha <= 0 && titleAge > 2.4f) titleAge = float.PositiveInfinity;
     }
 }

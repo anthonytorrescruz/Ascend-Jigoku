@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // Physics only. The brain supplies movement; hit reactions temporarily take priority.
+// Brain calls Move/Stop to set a desired velocity, which Tick eases the Rigidbody toward. The rest are terrain probes
+// (ground, floor ahead, walls, step-ups, walkable route, jump arcs, flyer steering) that the brain asks questions with.
 [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D), typeof(EnemyCombat))]
 [DisallowMultipleComponent]
 public sealed class EnemyMotor : MonoBehaviour
@@ -13,13 +15,19 @@ public sealed class EnemyMotor : MonoBehaviour
     private Vector2 desiredVelocity;
     private float knockbackUntil = float.NegativeInfinity;
     private float nextJumpAt;
+    // Reused result buffer for casts. Every probe clears it first, so probes must not be nested.
     private readonly List<RaycastHit2D> hits = new List<RaycastHit2D>();
     private bool isFlying;
-    private float nextOverlapCheckAt, detourUntil;
+    private float nextOverlapCheckAt, detourUntil, steerUntil;
     private int steerSide, detourSide = 1;
     private readonly List<Collider2D> overlaps = new List<Collider2D>();
+
     public bool IsFlying => isFlying;
-    public float JumpRise => Definition == null ? 0 : Definition.jumpSpeed * Definition.jumpSpeed / (2 * Mathf.Max(0.01f, Mathf.Abs(Physics2D.gravity.y) * Definition.gravityScale));
+
+    // Peak height of a jump: v^2 / 2g, using this enemy's own gravity scale.
+    public float JumpRise => Definition == null ? 0
+        : Definition.jumpSpeed * Definition.jumpSpeed
+            / (2 * Mathf.Max(0.01f, Mathf.Abs(Physics2D.gravity.y) * Definition.gravityScale));
     public bool IsKnockedBack => Time.time < knockbackUntil;
     public bool IsGrounded => ProbeGround(out _);
     public EnemyDefinition Definition => combat.Definition;
@@ -32,24 +40,37 @@ public sealed class EnemyMotor : MonoBehaviour
         combat = GetComponent<EnemyCombat>();
         health = GetComponent<EnemyHealth>();
     }
+
     private void Start()
     {
         if (Definition == null) return;
         body.mass = Mathf.Max(1, Definition.bodyMass);
         SetFlying(Definition.movement == EnemyMovement.Flying);
     }
+
+    // Flying turns gravity off; landing restores the definition's gravity scale.
     public void SetFlying(bool value)
     {
         isFlying = value;
-        body.gravityScale = value ? 0 : Definition.gravityScale;
+        if (value) body.gravityScale = 0;
+        else if (Definition != null) body.gravityScale = Definition.gravityScale;
     }
     public void Move(Vector2 velocity) => desiredVelocity = velocity;
+
     public void Stop() => desiredVelocity = Vector2.zero;
+
     private void FixedUpdate() => Tick(Time.time, Time.fixedDeltaTime);
+
+    // Eases the body toward desiredVelocity (x only for walkers, x and y for flyers). Skipped during knockback, and
+    // airborne walkers keep their jump momentum.
     public void Tick(float now, float dt)
     {
         if (Definition == null || health.CurrentHealth <= 0) return;
-        if (now >= nextOverlapCheckAt) { nextOverlapCheckAt = now + 0.2f; ResolveOverlap(); }
+        if (now >= nextOverlapCheckAt)
+        {
+            nextOverlapCheckAt = now + 0.2f;
+            ResolveOverlap();
+        }
         if (now < knockbackUntil)
         {
             // Hits shove enemies, but never off the edge of the ledge they stand on.
@@ -68,6 +89,9 @@ public sealed class EnemyMotor : MonoBehaviour
         if (flying) velocity.y = Mathf.MoveTowards(velocity.y, wanted.y, Definition.acceleration * dt);
         body.linearVelocity = velocity;
     }
+
+    // Stuns the enemy and applies the definition's knockback, directed away from the attacker: horizontal for walkers
+    // (vertical if the hit was mostly above/below), along the hit direction for flyers.
     public void TakeHit(Vector2 awayFromAttacker)
     {
         if (Definition == null || health.CurrentHealth <= 0) return;
@@ -84,12 +108,15 @@ public sealed class EnemyMotor : MonoBehaviour
         knockbackUntil = Time.time + Mathf.Max(0.06f, duration);
         Stop();
     }
+
     private ContactFilter2D TerrainFilter()
     {
         var filter = new ContactFilter2D { useTriggers = false };
         filter.SetLayerMask(Definition != null ? Definition.terrainLayers : (LayerMask)(1 << 3));
         return filter;
     }
+
+    // Ground check: casts the body shape 0.09 down and accepts surfaces flatter than ~57 degrees (normal.y > 0.55).
     private bool ProbeGround(out RaycastHit2D ground)
     {
         ground = default;
@@ -98,15 +125,24 @@ public sealed class EnemyMotor : MonoBehaviour
         shape.Cast(Vector2.down, TerrainFilter(), hits, 0.09f);
         foreach (var hit in hits)
             if (!hit.transform.IsChildOf(transform) && hit.normal.y > 0.55f)
-            { ground = hit; return true; }
+            {
+                ground = hit;
+                return true;
+            }
         return false;
     }
+
+    // Ledge check: a short ray down just past the leading edge of the body. False means a drop (or a wall too steep to stand on).
     public bool HasFloorAhead(float direction)
     {
         Bounds bounds = shape.bounds;
-        Vector2 from = new Vector2(bounds.center.x + Mathf.Sign(direction) * (bounds.extents.x + 0.25f), bounds.min.y + 0.15f);
+        Vector2 from = new Vector2(
+            bounds.center.x + Mathf.Sign(direction) * (bounds.extents.x + 0.25f),
+            bounds.min.y + 0.15f);
         return GroundAt(from, 0.55f, out _);
     }
+
+    // Raycasts down from a point for standable terrain (normal.y > 0.65), ignoring our own colliders.
     private bool GroundAt(Vector2 from, float distance, out RaycastHit2D ground)
     {
         hits.Clear();
@@ -114,9 +150,14 @@ public sealed class EnemyMotor : MonoBehaviour
         ground = default;
         foreach (var hit in hits)
             if (!hit.transform.IsChildOf(transform) && hit.normal.y > 0.65f)
-            { ground = hit; return true; }
+            {
+                ground = hit;
+                return true;
+            }
         return false;
     }
+
+    // Casts the body shape in a direction; counts only surfaces facing back against the motion (so sliding along a floor is not "blocked").
     public bool IsBlocked(Vector2 direction, float distance = 0.3f)
     {
         if (direction.sqrMagnitude < 0.001f) return false;
@@ -126,8 +167,13 @@ public sealed class EnemyMotor : MonoBehaviour
             if (!hit.transform.IsChildOf(transform) && Vector2.Dot(hit.normal, direction.normalized) < -0.2f) return true;
         return false;
     }
+
     // Blocked by something a walker cannot just step onto.
-    public bool IsWallAhead(float direction) => IsBlocked(Vector2.right * Mathf.Sign(direction)) && !CanStepUp(Mathf.Sign(direction));
+    public bool IsWallAhead(float direction) =>
+        IsBlocked(Vector2.right * Mathf.Sign(direction)) && !CanStepUp(Mathf.Sign(direction));
+
+    // A ledge up to stepHeight is climbable if there is headroom to rise by that much (first box cast up) and then
+    // free space to advance 0.3 at the raised height (second cast). Any non-self hit in either cast means no.
     private bool CanStepUp(float direction)
     {
         float step = Definition != null ? Definition.stepHeight : 0;
@@ -137,26 +183,39 @@ public sealed class EnemyMotor : MonoBehaviour
         var filter = TerrainFilter();
         hits.Clear();
         Physics2D.BoxCast(bounds.center, size, 0, Vector2.up, filter, hits, step + 0.03f);
-        foreach (var hit in hits) if (!hit.transform.IsChildOf(transform)) return false;
+        foreach (var hit in hits)
+            if (!hit.transform.IsChildOf(transform)) return false;
         hits.Clear();
-        Physics2D.BoxCast(bounds.center + Vector3.up * (step + 0.03f), size, 0, Vector2.right * direction, filter, hits, 0.3f);
-        foreach (var hit in hits) if (!hit.transform.IsChildOf(transform)) return false;
+        Physics2D.BoxCast(
+            bounds.center + Vector3.up * (step + 0.03f), size, 0, Vector2.right * direction, filter, hits, 0.3f);
+        foreach (var hit in hits)
+            if (!hit.transform.IsChildOf(transform)) return false;
         return true;
     }
+
+    // Teleports the body up onto the ledge (plus a small forward nudge) instead of relying on physics to climb it.
     private void TryStepUp(float direction)
     {
         if (!IsGrounded || !IsBlocked(Vector2.right * direction) || !CanStepUp(direction)) return;
         body.position += new Vector2(direction * 0.06f, Definition.stepHeight + 0.03f);
         body.linearVelocity = new Vector2(body.linearVelocity.x, 0);
     }
+
+    // True only if ground lies within distance below the left, middle and right of the body (safe to land).
     public bool GroundBelow(float distance)
     {
         Bounds bounds = shape.bounds;
-        foreach (float x in new[] { -bounds.extents.x * 0.8f, 0, bounds.extents.x * 0.8f })
-            if (!GroundAt(new Vector2(bounds.center.x + x, bounds.min.y + 0.05f), distance, out _)) return false;
+        for (int i = -1; i <= 1; i++)
+            if (!GroundAt(new Vector2(bounds.center.x + i * bounds.extents.x * 0.8f, bounds.min.y + 0.05f), distance, out _))
+                return false;
         return true;
     }
+
     // Walks the floor between here and the target: gaps and walls a walker cannot cross make it unreachable.
+    // Samples the floor every 0.4 units toward the target, tracking the height of the feet: a step up beyond
+    // maxClimb or a drop beyond maximumDrop fails, a run of missing floor longer than maxGap fails (jumpers may
+    // cross gaps and climb about their jump rise; walkers only stepHeight), and a wall/ceiling at body height
+    // between samples fails.
     public bool CanWalkTo(Vector2 target)
     {
         if (Definition == null) return false;
@@ -174,23 +233,50 @@ public sealed class EnemyMotor : MonoBehaviour
         {
             float x = bounds.center.x + direction * Mathf.Min(d, Mathf.Max(0, limit));
             hits.Clear();
-            Physics2D.Raycast(new Vector2(x, feet + maxClimb + 0.3f), Vector2.down, filter, hits, maxClimb + 0.3f + Definition.maximumDrop + 0.3f);
-            bool found = false; float top = 0;
+            Physics2D.Raycast(
+                new Vector2(x, feet + maxClimb + 0.3f), Vector2.down, filter, hits,
+                maxClimb + 0.3f + Definition.maximumDrop + 0.3f);
+            bool found = false;
+            float top = 0;
             foreach (var hit in hits)
-                if (!hit.transform.IsChildOf(transform) && hit.normal.y > 0.65f) { found = true; top = hit.point.y; break; }
-            if (!found) { gap += x == previousX ? 0 : Mathf.Abs(x - previousX); if (gap > maxGap) return false; previousX = x; continue; }
+                if (!hit.transform.IsChildOf(transform) && hit.normal.y > 0.65f)
+                {
+                    found = true;
+                    top = hit.point.y;
+                    break;
+                }
+            if (!found)
+            {
+                gap += x == previousX ? 0 : Mathf.Abs(x - previousX);
+                if (gap > maxGap) return false;
+                previousX = x;
+                continue;
+            }
             if (top - feet > maxClimb || feet - top > Definition.maximumDrop + 0.6f) return false;
             // A ceiling or wall between the last sample and this one at body height.
             hits.Clear();
-            Physics2D.Linecast(new Vector2(previousX, Mathf.Max(feet, top) + bounds.size.y * 0.6f), new Vector2(x, Mathf.Max(feet, top) + bounds.size.y * 0.6f), filter, hits);
-            foreach (var hit in hits) if (!hit.transform.IsChildOf(transform)) return false;
-            gap = 0; feet = top; previousX = x;
+            Physics2D.Linecast(
+                new Vector2(previousX, Mathf.Max(feet, top) + bounds.size.y * 0.6f),
+                new Vector2(x, Mathf.Max(feet, top) + bounds.size.y * 0.6f),
+                filter, hits);
+            foreach (var hit in hits)
+                if (!hit.transform.IsChildOf(transform)) return false;
+            gap = 0;
+            feet = top;
+            previousX = x;
             if (d >= limit) break;
         }
         return gap <= maxGap;
     }
-    public void Detour(int side, float until) { detourSide = side >= 0 ? 1 : -1; detourUntil = until; }
-    // Flyers: straight ahead if clear, else the nearest clear direction in a fan, sticking to one side so they do not dither.
+    // Brain's stuck handling: until the given time, flyers sidestep (90 degrees) to one side instead of heading straight.
+    public void Detour(int side, float until)
+    {
+        detourSide = side >= 0 ? 1 : -1;
+        detourUntil = until;
+    }
+
+    // Flyers: straight ahead if clear, else the nearest clear direction in a fan (30 to 150 degrees, sticking to one
+    // side so they do not dither), slowing down the sharper the turn. Zero if everything is blocked.
     public Vector2 Steer(Vector2 wanted)
     {
         float speed = wanted.magnitude;
@@ -202,7 +288,12 @@ public sealed class EnemyMotor : MonoBehaviour
             Vector2 sideways = Rotate(direction, 90 * detourSide);
             if (!IsBlocked(sideways, look)) return sideways * speed * 0.8f;
         }
-        else if (!IsBlocked(direction, look)) { steerSide = 0; return wanted; }
+        else if (!IsBlocked(direction, look))
+        {
+            // Keep the chosen side for a moment so corners do not dither.
+            if (Time.time >= steerUntil) steerSide = 0;
+            return wanted;
+        }
         int first = steerSide != 0 ? steerSide : (direction.x >= 0 ? 1 : -1);
         for (int angle = 30; angle <= 150; angle += 30)
             for (int i = 0; i < 2; i++)
@@ -211,15 +302,18 @@ public sealed class EnemyMotor : MonoBehaviour
                 Vector2 candidate = Rotate(direction, angle * side);
                 if (IsBlocked(candidate, look)) continue;
                 steerSide = side;
+                steerUntil = Time.time + 0.6f;
                 return candidate * speed * (angle >= 90 ? 0.6f : 0.85f);
             }
         return Vector2.zero;
     }
+
     private static Vector2 Rotate(Vector2 v, float degrees)
     {
         float r = degrees * Mathf.Deg2Rad, c = Mathf.Cos(r), s = Mathf.Sin(r);
         return new Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
     }
+
     // Pops the body out of solid terrain it ended up inside (spawned or squeezed into it).
     private void ResolveOverlap()
     {
@@ -236,10 +330,15 @@ public sealed class EnemyMotor : MonoBehaviour
             body.position += away.normalized * (Mathf.Abs(distance.distance) + 0.02f);
         }
     }
+
+    // Jumpers only. Searches landing spots from far to near (every 0.35) along the move direction for a supported
+    // surface, solves the ballistic flight time for the fixed jumpSpeed, derives the horizontal speed needed, and
+    // jumps if that is within jumpForwardSpeed and the arc is clear. False if no landing works or on cooldown.
     public bool TryJump(float direction, Vector2 target, float now)
     {
         if (Definition == null || Definition.movement != EnemyMovement.Jumper || now < nextJumpAt
             || !IsGrounded || IsKnockedBack || combat.IsStunned) return false;
+
         float gravity = Mathf.Abs(Physics2D.gravity.y * body.gravityScale);
         if (gravity < 0.01f || Definition.jumpSpeed <= 0 || Definition.jumpForwardSpeed <= 0) return false;
         Bounds bounds = shape.bounds;
@@ -264,6 +363,8 @@ public sealed class EnemyMotor : MonoBehaviour
         }
         return false;
     }
+
+    // Sweeps the body (90% size) along the jump parabola in 12 segments and fails on any terrain hit.
     private bool ClearArc(Bounds bounds, float vx, float gravity, float flight)
     {
         Vector2 previous = bounds.center;
@@ -273,11 +374,14 @@ public sealed class EnemyMotor : MonoBehaviour
             Vector2 point = (Vector2)bounds.center + new Vector2(vx * t, Definition.jumpSpeed * t - gravity * t * t * 0.5f);
             Vector2 delta = point - previous;
             hits.Clear();
-            Physics2D.BoxCast(previous, (Vector2)bounds.size * 0.9f, 0, delta.normalized, TerrainFilter(), hits, delta.magnitude);
-            foreach (var hit in hits) if (!hit.transform.IsChildOf(transform)) return false;
+            Physics2D.BoxCast(
+                previous, (Vector2)bounds.size * 0.9f, 0, delta.normalized, TerrainFilter(), hits, delta.magnitude);
+            foreach (var hit in hits)
+                if (!hit.transform.IsChildOf(transform)) return false;
             previous = point;
         }
         return true;
     }
+
     private void OnDisable() => Stop();
 }

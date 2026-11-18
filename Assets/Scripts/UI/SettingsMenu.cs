@@ -9,6 +9,8 @@ namespace AscendJigoku.UI
 {
     // Runtime-built settings screen shared by the main menu and the pause menu.
     // Works while Time.timeScale is 0. Escape / B / Start goes back; Escape cancels a key being rebound.
+    // Opened with SettingsMenu.Open(callback). The whole screen is rebuilt in code (Build) whenever the page changes;
+    // Close() saves, destroys the menu and then runs the caller's callback so it can show its own menu again.
     public sealed class SettingsMenu : MonoBehaviour
     {
         private enum Page { Audio, Controls, Display, Accessibility }
@@ -25,9 +27,11 @@ namespace AscendJigoku.UI
         private Text status;
         private InputActionRebindingExtensions.RebindingOperation rebinding;
         private int rebindEndedFrame = -10;
-        private readonly List<KeyValuePair<Button, KeybindSettings.Entry>> keyButtons = new List<KeyValuePair<Button, KeybindSettings.Entry>>();
+        private readonly List<KeyValuePair<Button, KeybindSettings.Entry>> keyButtons =
+            new List<KeyValuePair<Button, KeybindSettings.Entry>>();
         private int sortingOrder;
 
+        // Only one settings menu exists at a time; a second Open returns the existing one.
         public static SettingsMenu Open(Action onClosed, int sortingOrder = 200)
         {
             if (current != null) return current;
@@ -54,6 +58,8 @@ namespace AscendJigoku.UI
             back?.Dispose();
         }
 
+        // Back handling. While listening for a key, Escape is consumed by the rebind itself, and the frame after a rebind
+        // ends is skipped so that same Escape press doesn't also close the menu.
         private void Update()
         {
             if (rebinding != null)
@@ -72,11 +78,14 @@ namespace AscendJigoku.UI
             CancelRebind();
             GameSettings.Save();
             LastBackFrame = Time.frameCount;
-            var callback = onClosed; onClosed = null;
+            var callback = onClosed;
+            onClosed = null;
             Destroy(gameObject);
             callback?.Invoke();
         }
 
+        // Creates the canvas, title, tab row and bottom buttons, then fills the content area for the current page.
+        // Pages are rebuilt from scratch rather than updated, so keep per-page state in GameSettings, not in widgets.
         private void Build()
         {
             if (canvas != null) Destroy(canvas.gameObject);
@@ -86,17 +95,25 @@ namespace AscendJigoku.UI
             MenuStyle.Title(canvas, "SETTINGS", 300, 52);
 
             string[] names = { "AUDIO", "CONTROLS", "DISPLAY", "ACCESSIBILITY" };
-            Button firstTab = null;
+            Button activeTab = null;
             for (int i = 0; i < names.Length; i++)
             {
                 var target = (Page)i;
-                var tab = MenuStyle.Button(canvas, names[i], new Vector2(-390 + i * 260, 215), () => ShowPage(target), new Vector2(250, 48), 22);
-                if (target == page) { var colors = tab.colors; colors.normalColor = MenuStyle.TabActive; tab.colors = colors; }
-                if (i == 0) firstTab = tab;
+                var tab = MenuStyle.Button(
+                    canvas, names[i], new Vector2(-390 + i * 260, 215), () => ShowPage(target), new Vector2(250, 48), 22);
+                // The current tab is drawn in the active color.
+                if (target == page)
+                {
+                    var colors = tab.colors;
+                    colors.normalColor = MenuStyle.TabActive;
+                    tab.colors = colors;
+                }
+                if (target == page) activeTab = tab;
             }
 
             content = MenuStyle.Group(canvas, "Page");
-            status = MenuStyle.Label(canvas, "Status", "", new Vector2(0, -248), new Vector2(1000, 34), 20, TextAnchor.MiddleCenter, MenuStyle.MutedText);
+            status = MenuStyle.Label(
+                canvas, "Status", "", new Vector2(0, -248), new Vector2(1000, 34), 20, TextAnchor.MiddleCenter, MenuStyle.MutedText);
             MenuStyle.Button(canvas, "DEFAULTS", new Vector2(-170, -300), ResetPage, new Vector2(300, 56));
             MenuStyle.Button(canvas, "BACK", new Vector2(170, -300), Close, new Vector2(300, 56));
 
@@ -104,7 +121,8 @@ namespace AscendJigoku.UI
             else if (page == Page.Controls) BuildControls();
             else if (page == Page.Display) BuildDisplay();
             else BuildAccessibility();
-            MenuStyle.SelectForController(firstTab);
+            // Start on the current tab so keyboard/pad navigation begins there.
+            MenuStyle.SelectForController(activeTab);
         }
 
         private void ShowPage(Page target)
@@ -114,12 +132,32 @@ namespace AscendJigoku.UI
             Build();
         }
 
+        // The DEFAULTS button. Audio and Accessibility share one reset (GameSettings.ResetToDefaults covers both).
+        // Build() recreates the status label, so the message is set after it.
         private void ResetPage()
         {
             if (rebinding != null) return;
-            if (page == Page.Controls) { KeybindSettings.ResetToDefaults(); Build(); status.text = "Keys restored to defaults."; }
-            else if (page == Page.Display) { GameSettings.ResetDisplayToDefaults(); GameSettings.SetShowTimer(false); GameSettings.Save(); Build(); status.text = "Display restored to defaults."; }
-            else { GameSettings.ResetToDefaults(); GameSettings.Save(); Build(); status.text = "Audio and accessibility restored to defaults."; }
+            if (page == Page.Controls)
+            {
+                KeybindSettings.ResetToDefaults();
+                Build();
+                status.text = "Keys restored to defaults.";
+            }
+            else if (page == Page.Display)
+            {
+                GameSettings.ResetDisplayToDefaults();
+                GameSettings.SetShowTimer(false);
+                GameSettings.Save();
+                Build();
+                status.text = "Display restored to defaults.";
+            }
+            else
+            {
+                GameSettings.ResetToDefaults();
+                GameSettings.Save();
+                Build();
+                status.text = "Audio and accessibility restored to defaults.";
+            }
         }
 
         // ---------- Pages ----------
@@ -133,32 +171,45 @@ namespace AscendJigoku.UI
 
         private void BuildControls()
         {
-            MenuStyle.Label(content, "Help", "Click an action, then press a key.  Esc cancels.  Arrow keys always move.  Controller layout is fixed.",
+            MenuStyle.Label(content, "Help",
+                "Click an action, then press a key.  Esc cancels.  Arrow keys always move.  Controller layout is fixed.",
                 new Vector2(0, 168), new Vector2(1100, 30), 18, TextAnchor.MiddleCenter, MenuStyle.MutedText);
             var entries = KeybindSettings.Entries;
             for (int i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
+                // Rows are 37 apart, squeezed together if there are too many to fit in 350.
                 float y = 128 - i * Mathf.Min(37f, 350f / Mathf.Max(1, entries.Count - 1));
                 RowLabel(entry.Label, y, 20);
                 Button button = null;
-                button = MenuStyle.Button(content, entry.DisplayKey, new Vector2(200, y), () => BeginRebind(button, entry), new Vector2(260, 32), 20);
+                button = MenuStyle.Button(
+                    content, entry.DisplayKey, new Vector2(200, y), () => BeginRebind(button, entry), new Vector2(260, 32), 20);
                 keyButtons.Add(new KeyValuePair<Button, KeybindSettings.Entry>(button, entry));
             }
         }
 
         private void BuildAccessibility()
         {
+            // Sliders use whole-number steps (0-10 = 0-100% shake, 5-10 = 50-100% speed) and divide back down here.
             Text shakeValue = null;
             RowLabel("Screen shake", 150);
             MenuStyle.Slider(content, new Vector2(200, 150), 300, 0, 10, true, Mathf.Round(GameSettings.ScreenShake * 10),
-                v => { GameSettings.SetScreenShake(v / 10f); shakeValue.text = ShakeText(v / 10f); });
+                v =>
+                {
+                    GameSettings.SetScreenShake(v / 10f);
+                    shakeValue.text = ShakeText(v / 10f);
+                });
             shakeValue = ValueLabel(150, ShakeText(GameSettings.ScreenShake));
 
             Text speedValue = null;
             RowLabel("Game speed (assist)", 95);
-            MenuStyle.Slider(content, new Vector2(200, 95), 300, GameSettings.MinGameSpeed * 10, 10, true, Mathf.Round(GameSettings.GameSpeed * 10),
-                v => { GameSettings.SetGameSpeed(v / 10f); speedValue.text = Mathf.RoundToInt(v * 10) + "%"; });
+            MenuStyle.Slider(content, new Vector2(200, 95), 300, GameSettings.MinGameSpeed * 10, 10, true,
+                Mathf.Round(GameSettings.GameSpeed * 10),
+                v =>
+                {
+                    GameSettings.SetGameSpeed(v / 10f);
+                    speedValue.text = Mathf.RoundToInt(v * 10) + "%";
+                });
             speedValue = ValueLabel(95, Mathf.RoundToInt(GameSettings.GameSpeed * 100) + "%");
 
             ToggleRow("Hit-stop (impact freeze)", 40, () => GameSettings.HitStop, GameSettings.SetHitStop);
@@ -166,14 +217,20 @@ namespace AscendJigoku.UI
             ToggleRow("Stronger attack warnings", -56, () => GameSettings.StrongTelegraphs, GameSettings.SetStrongTelegraphs);
             ToggleRow("Low-health vignette", -104, () => GameSettings.DamageVignette, GameSettings.SetDamageVignette);
             ToggleRow("Instant respawn", -152, () => GameSettings.InstantRespawn, GameSettings.SetInstantRespawn);
-            MenuStyle.Label(content, "Note", "Game speed slows enemies too and applies on return to play. Instant respawn skips the death screen.",
+            MenuStyle.Label(content, "Note",
+                "Game speed slows enemies too and applies on return to play. Instant respawn skips the death screen.",
                 new Vector2(0, -200), new Vector2(1000, 30), 18, TextAnchor.MiddleCenter, MenuStyle.MutedText);
         }
 
         private void BuildDisplay()
         {
             ToggleRow("Fullscreen", 150, () => GameSettings.Fullscreen, GameSettings.SetFullscreen);
-            CycleRow("Window size (windowed)", 95, () => { var s = GameSettings.WindowSizes[GameSettings.WindowSize]; return s.x + " x " + s.y; },
+            CycleRow("Window size (windowed)", 95,
+                () =>
+                {
+                    var s = GameSettings.WindowSizes[GameSettings.WindowSize];
+                    return s.x + " x " + s.y;
+                },
                 () => GameSettings.SetWindowSize((GameSettings.WindowSize + 1) % GameSettings.WindowSizes.Length));
             ToggleRow("VSync", 40, () => GameSettings.VSync, GameSettings.SetVSync);
             CycleRow("Frame limit", -15, () => GameSettings.FrameCap <= 0 ? "None" : GameSettings.FrameCap + " FPS",
@@ -183,6 +240,7 @@ namespace AscendJigoku.UI
                 new Vector2(0, -125), new Vector2(1000, 30), 18, TextAnchor.MiddleCenter, MenuStyle.MutedText);
         }
 
+        // Next preset in the list, wrapping around (an unknown current value starts at the first preset).
         private static int NextCap(int current)
         {
             var caps = GameSettings.FrameCaps;
@@ -194,26 +252,41 @@ namespace AscendJigoku.UI
 
         // ---------- Rows ----------
 
+        // Rows are laid out in the content group: label at the left (x -230), control at the right, y measured from the middle.
+
         private void RowLabel(string text, float y, int size = 24)
-            => MenuStyle.Label(content, text + " Label", text, new Vector2(-230, y), new Vector2(400, 40), size, TextAnchor.MiddleLeft);
+            => MenuStyle.Label(
+                content, text + " Label", text, new Vector2(-230, y), new Vector2(400, 40), size, TextAnchor.MiddleLeft);
 
         private Text ValueLabel(float y, string text)
-            => MenuStyle.Label(content, "Value", text, new Vector2(410, y), new Vector2(100, 40), 22, TextAnchor.MiddleLeft, MenuStyle.MutedText);
+            => MenuStyle.Label(
+                content, "Value", text, new Vector2(410, y), new Vector2(100, 40), 22, TextAnchor.MiddleLeft, MenuStyle.MutedText);
 
         private void PercentRow(string label, float y, float value, Action<float> set)
         {
             RowLabel(label, y);
             Text valueText = null;
             MenuStyle.Slider(content, new Vector2(200, y), 300, 0, 100, true, Mathf.Round(value * 100),
-                v => { set(v / 100f); valueText.text = Mathf.RoundToInt(v) + "%"; });
+                v =>
+                {
+                    set(v / 100f);
+                    valueText.text = Mathf.RoundToInt(v) + "%";
+                });
             valueText = ValueLabel(y, Mathf.RoundToInt(value * 100) + "%");
         }
 
+        // Button that steps through a fixed list of choices; `advance` moves to the next and `get` returns the text to show.
         private void CycleRow(string label, float y, Func<string> get, Action advance)
         {
             RowLabel(label, y);
             Button cycle = null;
-            cycle = MenuStyle.Button(content, get(), new Vector2(160, y), () => { advance(); MenuStyle.SetButtonText(cycle, get()); }, new Vector2(220, 42), 22);
+            cycle = MenuStyle.Button(content, get(), new Vector2(160, y),
+                () =>
+                {
+                    advance();
+                    MenuStyle.SetButtonText(cycle, get());
+                },
+                new Vector2(220, 42), 22);
         }
 
         private void ToggleRow(string label, float y, Func<bool> get, Action<bool> set)
@@ -229,11 +302,14 @@ namespace AscendJigoku.UI
 
         // ---------- Rebinding ----------
 
+        // Click a key button, then the next keyboard key pressed becomes the binding. KeybindSettings does the capture;
+        // this only handles the on-screen prompt and the "moved to ..." message when a key gets swapped.
         private void BeginRebind(Button button, KeybindSettings.Entry entry)
         {
             if (rebinding != null) return;
             // Deselect so the key being captured cannot also "submit" this button.
-            if (UnityEngine.EventSystems.EventSystem.current != null) UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+            if (UnityEngine.EventSystems.EventSystem.current != null)
+                UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
             MenuStyle.SetButtonText(button, "Press a key...");
             status.text = "Press a key for " + entry.Label + ".  Esc cancels.";
             rebinding = KeybindSettings.StartRebind(entry, message =>

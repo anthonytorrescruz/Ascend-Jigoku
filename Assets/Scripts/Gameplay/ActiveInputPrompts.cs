@@ -5,6 +5,8 @@ using AscendJigoku.Settings;
 
 namespace AscendJigoku.Gameplay
 {
+    // Works out whether the player is on keyboard or gamepad (last input wins) and supplies matching button names
+    // for on-screen prompts, honoring rebinds. Other UI code reads Interact/Confirm/Back/Controls and Button(action).
     [DefaultExecutionOrder(-1000)]
     public sealed class ActiveInputPrompts : MonoBehaviour
     {
@@ -16,11 +18,20 @@ namespace AscendJigoku.Gameplay
         private bool controlsWereController;
         private readonly Dictionary<string, string> labels = new Dictionary<string, string>();
         private int labelsVersion = -1;
-        private void Awake() { bindings = new PlayerActions(); KeybindSettings.Register(bindings.asset); }
+
+        private void Awake()
+        {
+            bindings = new PlayerActions();
+            KeybindSettings.Register(bindings.asset);
+        }
+
         private void OnDestroy() => bindings?.Dispose();
+
         public string Interact => UsesController ? "Y" : KeybindSettings.InteractLabel;
         public string Confirm => UsesController ? "A" : "Enter / Space";
         public string Back => UsesController ? "B" : "Esc";
+
+        // One-line summary of all gameplay controls, cached until the input device or a rebind changes it.
         public string Controls
         {
             get
@@ -34,22 +45,38 @@ namespace AscendJigoku.Gameplay
                 return controlsText;
             }
         }
+
+        // Display name of the key/button bound to an input action (e.g. "Jump"), for the current device.
         public string Button(string action)
         {
             if (action == "Ability" || action == "SwapWeapon")
-            { SyncLabels(); return KeybindSettings.ExtraLabel(action == "Ability" ? "ability" : "swap", UsesController); }
-            if (bindings == null) { bindings = new PlayerActions(); KeybindSettings.Register(bindings.asset); }
+            {
+                SyncLabels();
+                return KeybindSettings.ExtraLabel(action == "Ability" ? "ability" : "swap", UsesController);
+            }
+
+            if (bindings == null)
+            {
+                bindings = new PlayerActions();
+                KeybindSettings.Register(bindings.asset);
+            }
             SyncLabels();
             string key = (UsesController ? "pad:" : "key:") + action;
             if (labels.TryGetValue(key, out string label)) return label;
-            label = ReadButton(action); labels[key] = label; return label;
+            label = ReadButton(action);
+            labels[key] = label;
+            return label;
         }
+
         // Rebinding in Settings bumps the version; drop cached key names so prompts show the new keys.
         private void SyncLabels()
         {
             if (labelsVersion == KeybindSettings.Version) return;
-            labelsVersion = KeybindSettings.Version; labels.Clear(); controlsText = null;
+            labelsVersion = KeybindSettings.Version;
+            labels.Clear();
+            controlsText = null;
         }
+
         private string ReadButton(string action)
         {
             foreach (var binding in bindings.asset.FindAction("PlayerInput/" + action, true).bindings)
@@ -70,6 +97,8 @@ namespace AscendJigoku.Gameplay
             }
             return action;
         }
+
+        // Switches to controller prompts on any pad button or stick movement, back to keyboard on key or click.
         private void Update()
         {
             bool moved = false;
@@ -80,7 +109,10 @@ namespace AscendJigoku.Gameplay
                 if (g.buttonSouth.wasPressedThisFrame || g.buttonEast.wasPressedThisFrame || g.buttonNorth.wasPressedThisFrame
                     || g.buttonWest.wasPressedThisFrame || g.leftShoulder.wasPressedThisFrame || g.rightShoulder.wasPressedThisFrame
                     || g.startButton.wasPressedThisFrame || g.selectButton.wasPressedThisFrame || (thisMoved && !stickWasMoved))
-                { UsesController = true; activeGamepad = g; }
+                {
+                    UsesController = true;
+                    activeGamepad = g;
+                }
             }
             if (moved && !stickWasMoved) UsesController = true;
             stickWasMoved = moved;

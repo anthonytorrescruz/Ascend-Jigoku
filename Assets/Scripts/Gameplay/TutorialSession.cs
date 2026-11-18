@@ -19,7 +19,11 @@ namespace AscendJigoku.Gameplay
         public static bool Done => PlayerPrefs.GetInt(DoneKey, 0) == 1;
         public static void ArmForNewRun() => pending = !Done;   // later runs skip it
         public static void ArmReplay() => pending = true;
-        internal static void MarkDone() { PlayerPrefs.SetInt(DoneKey, 1); PlayerPrefs.Save(); }
+        internal static void MarkDone()
+        {
+            PlayerPrefs.SetInt(DoneKey, 1);
+            PlayerPrefs.Save();
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() => pending = false;
@@ -39,7 +43,8 @@ namespace AscendJigoku.Gameplay
             if (!pending || !scene.IsValid()) return;
             var generator = UnityEngine.Object.FindAnyObjectByType<VerticalLevelGenerator>();
             var player = UnityEngine.Object.FindAnyObjectByType<PlayerHealth>();
-            if (generator == null || player == null || generator.gameObject.scene != scene || generator.Settings == null || generator.Settings.platformPrefab == null) return;
+            if (generator == null || player == null || generator.gameObject.scene != scene
+                || generator.Settings == null || generator.Settings.platformPrefab == null) return;
             pending = false;
             generator.enabled = false; // before its Start, so no pillar is built and no fall check runs
             var go = new GameObject("Tutorial");
@@ -58,8 +63,12 @@ namespace AscendJigoku.Gameplay
     {
         private sealed class Station
         {
-            public string Title; public Func<string> Text; public Func<bool> Done;
-            public float Rest; public Action Begin, End; public TutorialSeal Seal;
+            public string Title;
+            public Func<string> Text;
+            public Func<bool> Done;
+            public float Rest;
+            public Action Begin, End;
+            public TutorialSeal Seal;
         }
 
         private const float ArenaGate = 288, ArenaTrigger = 298, SkipSeconds = 1.2f;
@@ -112,16 +121,24 @@ namespace AscendJigoku.Gameplay
 
         public void Begin(VerticalLevelGenerator gen, PlayerHealth player)
         {
-            generator = gen; health = player;
-            controller = player.GetComponent<PlayerController>(); combat = player.GetComponent<PlayerCombat>();
-            parry = player.GetComponent<PlayerParry>(); spell = player.GetComponent<PlayerSpell>();
-            respawn = player.GetComponent<PlayerRespawn>(); body = player.GetComponent<Rigidbody2D>(); shape = player.GetComponent<Collider2D>();
-            controlLock = player.GetComponent<PlayerControlLock>(); if (controlLock == null) controlLock = player.gameObject.AddComponent<PlayerControlLock>();
-            prompts = FindAnyObjectByType<ActiveInputPrompts>(); if (prompts == null) prompts = gameObject.AddComponent<ActiveInputPrompts>();
+            generator = gen;
+            health = player;
+            controller = player.GetComponent<PlayerController>();
+            combat = player.GetComponent<PlayerCombat>();
+            parry = player.GetComponent<PlayerParry>();
+            spell = player.GetComponent<PlayerSpell>();
+            respawn = player.GetComponent<PlayerRespawn>();
+            body = player.GetComponent<Rigidbody2D>();
+            shape = player.GetComponent<Collider2D>();
+            controlLock = player.GetComponent<PlayerControlLock>();
+            if (controlLock == null) controlLock = player.gameObject.AddComponent<PlayerControlLock>();
+            prompts = FindAnyObjectByType<ActiveInputPrompts>();
+            if (prompts == null) prompts = gameObject.AddComponent<ActiveInputPrompts>();
             ui = TutorialUI.Create(transform, prompts);
             footOffset = player.transform.position.y - shape.bounds.min.y;
             wasDashing = controller.DashOnCooldown;
-            deathHandler = player.gameObject.AddComponent<TutorialDeathHandler>(); deathHandler.session = this;
+            deathHandler = player.gameObject.AddComponent<TutorialDeathHandler>();
+            deathHandler.session = this;
             level = new TutorialLevel(gen, gen.transform.position + new Vector3(260, 0, 0));
             BuildCourse();
             controlLock.Lock();
@@ -160,11 +177,13 @@ namespace AscendJigoku.Gameplay
             AddStation("POGO", () => $"In the air, hold {K(down)} and press {Key("Attack")} over spikes to bounce off them. Cross the pit.",
                 () => pogos > 0 || (grounded() && PlayerX > 192), 136);
             AddStation("PARRY", () => $"The enemy winds up a slow strike. Press {Key("Parry")} just as it lands to deflect it.",
-                () => parries > 0, 196, 248, SpawnFodder, () => { if (fodder != null) Destroy(fodder); });
+                () => parries > 0 || noFodder, 196, 248, SpawnFodder,
+                () => { if (fodder != null) Destroy(fodder); });
             AddStation("SHOOT", () => $"Tap {Key("CastOrHeal")} to shoot.",
                 () => spell != null && spell.ShotsFired > shotsBase, 252, 264, () => shotsBase = spell.ShotsFired);
             AddStation("HEAL", () => $"That hurt. Hold {Key("CastOrHeal")} until the ring fills to heal.",
-                () => spell != null && spell.HealsCompleted > healsBase, 266, 278, () => { healsBase = spell.HealsCompleted; health.TakeFallDamage(1); });
+                () => spell != null && spell.HealsCompleted > healsBase, 266, 278,
+                () => { healsBase = spell.HealsCompleted; health.TakeFallDamage(1); });
         }
 
         private void AddStation(string title, Func<string> text, Func<bool> done, float rest, float sealX = -1, Action begin = null, Action end = null)
@@ -181,6 +200,7 @@ namespace AscendJigoku.Gameplay
         }
 
         private GameObject fodder;
+        private bool noFodder; // no enemy prefab to parry: let the lesson pass instead of locking the player in
         private float nextFodder;
         private GameObject EnemyPrefab(string preferred)
         {
@@ -206,7 +226,25 @@ namespace AscendJigoku.Gameplay
         private void SpawnFodder()
         {
             var prefab = EnemyPrefab("Fodder");
-            if (prefab != null) fodder = Spawn(prefab, 232, 1.5f);
+            if (prefab == null)
+            {
+                noFodder = true;
+                return;
+            }
+            fodder = Spawn(prefab, 232, 1.5f);
+            // The lesson needs a strike to parry: the pillar's imp only hurts by touch and has no real swing.
+            var combat = fodder.GetComponent<EnemyCombat>();
+            if (combat != null && combat.Definition != null)
+            {
+                var profile = Instantiate(combat.Definition);
+                profile.attackSize = new Vector2(1.25f, 1.25f);
+                profile.contactDamage = 0;
+                profile.canFly = false;
+                profile.evadeAttacks = false;
+                combat.UseDefinition(profile);
+            }
+            var hp = fodder.GetComponent<EnemyHealth>();
+            if (hp != null) hp.DamageEnabled = false; // can't be cut down before the parry lands
         }
 
         // ---------- Flow ----------
@@ -228,12 +266,24 @@ namespace AscendJigoku.Gameplay
                 while (!station.Done())
                 {
                     string text = station.Text();
-                    if (!ui.Flashing && text != shown) { ui.ShowPrompt($"{i + 1} / {stations.Count}    {station.Title}", text); shown = text; }
-                    if (station.Title == "PARRY" && fodder == null && Time.time > nextFodder) { nextFodder = Time.time + 1.5f; SpawnFodder(); }
+                    if (!ui.Flashing && text != shown)
+                    {
+                        ui.ShowPrompt($"{i + 1} / {stations.Count}    {station.Title}", text);
+                        shown = text;
+                    }
+
+                    // Died and was revived: hurt again so there is something to heal.
+                    if (station.Title == "HEAL" && health.CurrentHealth >= health.MaxHealth) health.TakeFallDamage(1);
+                    if (station.Title == "PARRY" && fodder == null && Time.time > nextFodder)
+                    {
+                        nextFodder = Time.time + 1.5f;
+                        SpawnFodder();
+                    }
                     yield return null;
                 }
                 ui.FlashDone("Good.");
-                station.End?.Invoke(); StationIndex = i + 1;
+                station.End?.Invoke();
+                StationIndex = i + 1;
                 if (station.Seal != null) station.Seal.Dissolve();
                 yield return new WaitForSeconds(0.6f);
             }
@@ -258,7 +308,8 @@ namespace AscendJigoku.Gameplay
         {
             var types = new List<GameObject>();
             foreach (var spawn in generator.Settings.enemies)
-                if (spawn != null && spawn.prefab != null && spawn.prefab.GetComponent<EnemyHealth>() != null && spawn.prefab.GetComponent<Collider2D>() != null) types.Add(spawn.prefab);
+                if (spawn != null && spawn.prefab != null && spawn.prefab.GetComponent<EnemyHealth>() != null
+                    && spawn.prefab.GetComponent<Collider2D>() != null) types.Add(spawn.prefab);
             for (int i = 0; i < 7 && types.Count > 0; i++)
             {
                 var enemy = Spawn(types[i % types.Count], PlayerX + 8 + i * 3.5f, 2.5f);
@@ -270,7 +321,11 @@ namespace AscendJigoku.Gameplay
         public void OnPlayerDied()
         {
             if (leaving) return;
-            if (!finale) { StartCoroutine(Revived()); return; }
+            if (!finale)
+            {
+                StartCoroutine(Revived());
+                return;
+            }
             if (ending) return;
             ending = true;
             if (main != null) StopCoroutine(main);
@@ -338,7 +393,9 @@ namespace AscendJigoku.Gameplay
         private void Place(float x)
         {
             Vector3 position = level.At(x, footOffset + 0.08f);
-            body.linearVelocity = Vector2.zero; body.position = position; body.transform.position = position;
+            body.linearVelocity = Vector2.zero;
+            body.position = position;
+            body.transform.position = position;
             Physics2D.SyncTransforms();
             var follow = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
             if (follow != null) follow.SnapToTarget();
@@ -357,17 +414,30 @@ namespace AscendJigoku.Gameplay
         {
             if (leaving) return;
             var swing = combat.Attack.CurrentSwing;
-            if (swing != null && swing != lastSwing) { lastSwing = swing; swings++; }
-            if (swing != null && swing.PogoTriggered && swing != pogoSwing) { pogoSwing = swing; pogos++; }
+            if (swing != null && swing != lastSwing)
+            {
+                lastSwing = swing;
+                swings++;
+            }
+
+            if (swing != null && swing.PogoTriggered && swing != pogoSwing)
+            {
+                pogoSwing = swing;
+                pogos++;
+            }
             bool dashing = controller.DashOnCooldown;
             if (dashing && !wasDashing) dashes++;
             wasDashing = dashing;
-            if (parry.LastSuccessTime > parrySeen) { parrySeen = parry.LastSuccessTime; parries++; }
+            if (parry.LastSuccessTime > parrySeen)
+            {
+                parrySeen = parry.LastSuccessTime;
+                parries++;
+            }
             if (body.position.y < level.Origin.y - 30 && health.CurrentHealth > 0) respawn.Respawn();
 
             bool held = (Keyboard.current != null && Keyboard.current.tabKey.isPressed);
             foreach (var pad in Gamepad.all) held |= pad.selectButton.isPressed;
-            skipHeld = held ? skipHeld + Time.unscaledDeltaTime : 0;
+            skipHeld = held && Time.timeScale > 0 ? skipHeld + Time.unscaledDeltaTime : 0; // not while paused or shopping
             ui.SetSkip(prompts.UsesController ? "Back" : "Tab", skipHeld / SkipSeconds);
             if (skipHeld >= SkipSeconds) Skip();
         }

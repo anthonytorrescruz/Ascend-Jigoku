@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 
+// Tuning asset for VerticalLevelGenerator: pillar size, ledge layout, chunk streaming, fall damage, markers, bosses and enemies.
 [CreateAssetMenu(menuName = "Ascend Jigoku/Vertical Generation Settings")]
 public sealed class VerticalGenerationSettings : ScriptableObject
 {
@@ -15,8 +16,9 @@ public sealed class VerticalGenerationSettings : ScriptableObject
     [Min(0)] public float zigzagWidth = 14;
     [Range(0, 1)] public float horizontalVariation = 0.7f;
     [Range(0, 0.12f)] public float heightVariation = 0.1f;
+    // Fraction of the real jump reach the layout is allowed to use, so every gap stays comfortably jumpable.
     [Range(0.3f, 0.95f)] public float jumpSafety = 0.9f;
-    [Min(1)] public int wideLandingEvery = 15;
+    [Min(1)] public int wideLandingEvery = 15;   // every Nth ledge is a wide landing
     [Header("Streaming - World Units")]
     [Min(8)] public float chunkHeight = 40;
     [Range(4, 24)] public int platformsPerChunk = 10;
@@ -49,6 +51,8 @@ public sealed class VerticalGenerationSettings : ScriptableObject
     [Min(1)] public int firstEnemyRow = 5;
     [Min(1)] public int enemyRowSpacing = 3;
     [Min(0)] public float clearLandingHalfWidth = 1.25f;
+    [Tooltip("Coins added to the player's wallet for each enemy killed.")]
+    [Min(0)] public int coinsPerKill = 25;
     public EnemySpawn[] enemies = Array.Empty<EnemySpawn>();
     [Serializable]
     public sealed class HeightMarker

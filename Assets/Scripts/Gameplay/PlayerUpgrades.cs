@@ -2,6 +2,8 @@ using UnityEngine;
 
 namespace AscendJigoku.Gameplay
 {
+    // Tracks which shop upgrades the player has bought and applies them to health, damage and jump count.
+    // ShopMenu calls TryBuy; the run save uses CopyState/RestoreState.
     [RequireComponent(typeof(PlayerHealth), typeof(PlayerCombat), typeof(PlayerController))]
     public sealed class PlayerUpgrades : MonoBehaviour
     {
@@ -9,6 +11,8 @@ namespace AscendJigoku.Gameplay
         private readonly int[] applied = new int[3]; // total stat amount granted per kind
         public int Count(UpgradeKind kind) => purchases[(int)kind];
         public bool RunStateRestored { get; private set; }
+
+        // Maxed by purchase limit, or by a hard stat cap (99 health/damage, 8 jumps).
         public bool IsMaxed(ShopOffer offer)
         {
             if (offer == null) return true;
@@ -17,18 +21,35 @@ namespace AscendJigoku.Gameplay
                 : offer.kind == UpgradeKind.Damage ? GetComponent<PlayerCombat>().AttackDamage >= 99
                 : GetComponent<PlayerController>().MaxJumps >= 8;
         }
+
         public bool TryBuy(ShopOffer offer, CurrencyWallet wallet, out string result)
         {
             result = "Shop is unavailable.";
             if (offer == null || wallet == null || !isActiveAndEnabled) return false;
-            if (GetComponent<PlayerHealth>().CurrentHealth <= 0) { result = "You cannot buy while defeated."; return false; }
-            if (IsMaxed(offer)) { result = "Upgrade limit reached."; return false; }
+            if (GetComponent<PlayerHealth>().CurrentHealth <= 0)
+            {
+                result = "You cannot buy while defeated.";
+                return false;
+            }
+
+            if (IsMaxed(offer))
+            {
+                result = "Upgrade limit reached.";
+                return false;
+            }
             int cost = offer.Price(Count(offer.kind));
-            if (!wallet.TrySpend(cost)) { result = "Not enough " + wallet.CurrencyName.ToLowerInvariant() + "."; return false; }
+            if (!wallet.TrySpend(cost))
+            {
+                result = "Not enough " + wallet.CurrencyName.ToLowerInvariant() + ".";
+                return false;
+            }
             int amount = Mathf.Max(1, offer.amount);
             Grant(offer.kind, amount);
-            purchases[(int)offer.kind]++; result = offer.title + " purchased."; return true;
+            purchases[(int)offer.kind]++;
+            result = offer.title + " purchased.";
+            return true;
         }
+
         private void Grant(UpgradeKind kind, int amount)
         {
             switch (kind)
@@ -39,13 +60,19 @@ namespace AscendJigoku.Gameplay
             }
             applied[(int)kind] += amount;
         }
+
         // Saved runs (AJ-75): copy out, and re-grant on a fresh player. Never removes what is already applied.
         public void CopyState(int[] counts, int[] amounts)
         {
-            for (int i = 0; i < purchases.Length; i++) { counts[i] = purchases[i]; amounts[i] = applied[i]; }
+            for (int i = 0; i < purchases.Length; i++)
+            {
+                counts[i] = purchases[i];
+                amounts[i] = applied[i];
+            }
             var weapons = GetComponent<PlayerWeapons>();
             if (weapons != null) counts[counts.Length - 1] = RunSave.PackWeapons(counts[counts.Length - 1], weapons.OwnedMask);
         }
+
         public void RestoreState(int[] counts, int[] amounts)
         {
             if (RunStateRestored) return;

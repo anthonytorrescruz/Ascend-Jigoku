@@ -4,10 +4,15 @@ using UnityEngine;
 
 namespace AscendJigoku.Debugging
 {
+    // Registers the game-specific F1 actions and draws the overhead stat labels. Spawns itself after the first scene
+    // loads and rescans for players and enemies four times a second; only exists in editor/development builds.
     public sealed class DebugMenuGameBindings : MonoBehaviour
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
         private readonly HashSet<PlayerHealth> players = new HashSet<PlayerHealth>();
+        // What each player's actions were built for. The tutorial runs with the pillar off and no wallet,
+        // so the list is rebuilt when either shows up.
+        private readonly Dictionary<PlayerHealth, int> builtFor = new Dictionary<PlayerHealth, int>();
         private readonly HashSet<EnemyHealth> enemies = new HashSet<EnemyHealth>();
         private float nextScan;
         private GUIStyle labelStyle;
@@ -24,9 +29,11 @@ namespace AscendJigoku.Debugging
         {
             if (Time.unscaledTime < nextScan) return;
             nextScan = Time.unscaledTime + 0.25f;
+            // Drop actions for players and enemies that were destroyed or disabled since the last scan.
             players.RemoveWhere(player => {
                 if (player != null && player.isActiveAndEnabled) return false;
                 DebugMenu.RemoveAll(player);
+                builtFor.Remove(player);
                 return true;
             });
             enemies.RemoveWhere(enemy => {
@@ -36,7 +43,13 @@ namespace AscendJigoku.Debugging
             });
             foreach (PlayerHealth player in FindObjectsByType<PlayerHealth>())
             {
-                if (!player.isActiveAndEnabled || !players.Add(player)) continue;
+                if (!player.isActiveAndEnabled) continue;
+                var wallet = player.GetComponent<AscendJigoku.Gameplay.CurrencyWallet>();
+                int context = (VerticalLevelGenerator.Active != null ? 1 : 0) | (wallet != null ? 2 : 0);
+                if (players.Contains(player) && builtFor.TryGetValue(player, out int built) && built == context) continue;
+                DebugMenu.RemoveAll(player);
+                players.Add(player);
+                builtFor[player] = context;
                 DebugMenu.Action(player, "Player", "Take 1 damage", 1, () => player.TakeDamage(1));
                 PlayerRespawn respawn = player.GetComponent<PlayerRespawn>();
                 if (respawn != null)
@@ -46,22 +59,25 @@ namespace AscendJigoku.Debugging
                 DebugMenu.Action(player, "Player", "Restore health", 3, () => {
                     if (player.CurrentHealth > 0) player.Heal(player.MaxHealth);
                 });
-                var wallet = player.GetComponent<AscendJigoku.Gameplay.CurrencyWallet>();
                 if (wallet != null)
                     DebugMenu.Action(player, "Player", "+500 coins", 7, () => {
-                        if (wallet != null && !wallet.TrySetBalance(wallet.Balance + 500)) Debug.Log("This wallet cannot be topped up.");
+                        if (wallet != null && !wallet.TrySetBalance(wallet.Balance + 500))
+                            Debug.Log("This wallet cannot be topped up.");
                     });
                 DebugMenu.Action(player, "World", "Kill enemies nearby", 8, () => KillNearby(player));
                 // Pillar-only actions. The generator lives on the same scene as the player.
                 if (VerticalLevelGenerator.Active != null)
                 {
-                    DebugMenu.Action(player, "World", "Teleport: next checkpoint", 4, () => Log(VerticalLevelGenerator.Active?.DebugTeleportToCheckpoint(+1)));
-                    DebugMenu.Action(player, "World", "Teleport: previous checkpoint", 5, () => Log(VerticalLevelGenerator.Active?.DebugTeleportToCheckpoint(-1)));
+                    DebugMenu.Action(player, "World", "Teleport: next checkpoint", 4,
+                        () => Log(VerticalLevelGenerator.Active?.DebugTeleportToCheckpoint(+1)));
+                    DebugMenu.Action(player, "World", "Teleport: previous checkpoint", 5,
+                        () => Log(VerticalLevelGenerator.Active?.DebugTeleportToCheckpoint(-1)));
                     DebugMenu.Action(player, "World", "Teleport: up one chunk", 6, () => {
                         var world = VerticalLevelGenerator.Active;
                         if (world != null) Log(world.DebugTeleportRows(world.Metrics.RowsPerChunk));
                     });
-                    DebugMenu.Action(player, "World", "Defeat boss / open route", 9, () => Log(VerticalLevelGenerator.Active?.DebugDefeatBoss()));
+                    DebugMenu.Action(player, "World", "Defeat boss / open route", 9,
+                        () => Log(VerticalLevelGenerator.Active?.DebugDefeatBoss()));
                 }
             }
             foreach (EnemyHealth enemy in FindObjectsByType<EnemyHealth>())
@@ -71,16 +87,22 @@ namespace AscendJigoku.Debugging
             }
         }
 
-        private static void Log(string message) { if (!string.IsNullOrEmpty(message)) Debug.Log("[Debug] " + message); }
+        private static void Log(string message)
+        {
+            if (!string.IsNullOrEmpty(message)) Debug.Log("[Debug] " + message);
+        }
 
+        // Skips the boss on purpose; it has its own "Defeat boss" action.
         private static void KillNearby(PlayerHealth player)
         {
             int killed = 0;
             foreach (EnemyHealth enemy in FindObjectsByType<EnemyHealth>())
             {
-                if (enemy == null || enemy.CurrentHealth <= 0 || !enemy.DamageEnabled || enemy.GetComponent<FireWormBoss>() != null) continue;
+                if (enemy == null || enemy.CurrentHealth <= 0 || !enemy.DamageEnabled
+                    || enemy.GetComponent<FireWormBoss>() != null) continue;
                 if (((Vector2)(enemy.transform.position - player.transform.position)).sqrMagnitude > 30 * 30) continue;
-                enemy.TakeDamage(enemy.MaxHealth * 10); killed++;
+                enemy.TakeDamage(enemy.MaxHealth * 10);
+                killed++;
             }
             Log("Killed " + killed + " enemies within 30 units (the boss is skipped; use Defeat boss).");
         }
@@ -100,14 +122,18 @@ namespace AscendJigoku.Debugging
             return remaining > 0 ? "Cooldown " + remaining.ToString("F1") + "s" : "Idle";
         }
 
+        // Draws a stats label over every tracked player and enemy while F1 is open.
         private void OnGUI()
         {
             if (!DebugMenu.IsOpen || Time.timeScale <= 0) return;
             Camera camera = Camera.main;
             if (camera == null) return;
             if (labelStyle == null)
-                labelStyle = new GUIStyle(GUI.skin.label) {
-                    fontSize = 15, alignment = TextAnchor.MiddleCenter, wordWrap = true,
+                labelStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 15,
+                    alignment = TextAnchor.MiddleCenter,
+                    wordWrap = true,
                     normal = { textColor = Color.white }
                 };
             GUI.depth = 0;
@@ -139,9 +165,12 @@ namespace AscendJigoku.Debugging
             {
                 if (enemy == null || !enemy.isActiveAndEnabled) continue;
                 string text = enemy.name + "  HP " + enemy.CurrentHealth + "/" + enemy.MaxHealth
-                    + Velocity(enemy) + "\nAttack: " + EnemyState(enemy.GetComponent<CombatAttack>(), enemy.GetComponent<EnemyCombat>());
+                    + Velocity(enemy) + "\nAttack: "
+                    + EnemyState(enemy.GetComponent<CombatAttack>(), enemy.GetComponent<EnemyCombat>());
                 var brain = enemy.GetComponent<EnemyBrain>();
-                if (brain != null) text += "\nAI: " + brain.State + " / " + (brain.Definition != null ? brain.Definition.displayName : "No profile");
+                if (brain != null)
+                    text += "\nAI: " + brain.State + " / "
+                        + (brain.Definition != null ? brain.Definition.displayName : "No profile");
                 text += Geometry(enemy.GetComponent<CombatAttack>());
                 text += DebugMenu.Readout(enemy);
                 DrawLabel(camera, enemy, text, scale);
@@ -166,6 +195,8 @@ namespace AscendJigoku.Debugging
             return body != null ? "\nVelocity " + body.linearVelocity.ToString("F1") : "";
         }
 
+        // Places the label just above the sprite (or collider) and keeps it on screen. The GUI matrix is scaled,
+        // so screen pixels are divided by scale; GUI y runs top-down while WorldToScreenPoint runs bottom-up.
         private void DrawLabel(Camera camera, Component entity, string text, float scale)
         {
             Vector3 top = entity.transform.position + Vector3.up;

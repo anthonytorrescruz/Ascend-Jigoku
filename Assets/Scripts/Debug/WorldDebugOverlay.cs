@@ -18,15 +18,23 @@ namespace AscendJigoku.Debugging
 
         private void Update()
         {
-            sampleTime += Time.unscaledDeltaTime; frames++;
+            // FPS is averaged over half-second windows.
+            sampleTime += Time.unscaledDeltaTime;
+            frames++;
             if (sampleTime >= 0.5f)
-            { fps = frames / sampleTime; frames = 0; sampleTime = 0; }
+            {
+                fps = frames / sampleTime;
+                frames = 0;
+                sampleTime = 0;
+            }
             if (!DebugMenu.IsOpen || Time.unscaledTime < nextScan) return;
             nextScan = Time.unscaledTime + 0.5f;
             if (world == null || !world.isActiveAndEnabled)
                 world = FindAnyObjectByType<VerticalLevelGenerator>();
         }
 
+        // Right-hand panel: FPS, streaming stats and a mini map of the pillar. The panel is drawn in a scaled GUI matrix
+        // so it matches DebugMenu.DisplayScale at any resolution.
         private void OnGUI()
         {
             if (!DebugMenu.IsOpen) return;
@@ -47,7 +55,8 @@ namespace AscendJigoku.Debugging
             var panel = new Rect(Screen.width / scale - width - 12, 12, width, ready ? 462 : 96);
             DebugMenu.DrawBackdrop(panel);
             float x = panel.x + 12, y = panel.y + 8, contentWidth = width - 24;
-            GUI.Label(new Rect(x, y, contentWidth, 24), "WORLD DEBUG                     F1", title); y += 26;
+            GUI.Label(new Rect(x, y, contentWidth, 24), "WORLD DEBUG                     F1", title);
+            y += 26;
             Line(x, ref y, contentWidth, $"{fps:F0} FPS  /  {(fps > 0 ? 1000 / fps : 0):F1} ms   |   Time x{Time.timeScale:F1}");
             Line(x, ref y, contentWidth, SceneManager.GetActiveScene().name);
             if (ready)
@@ -55,19 +64,23 @@ namespace AscendJigoku.Debugging
                 var metrics = world.Metrics;
                 var settings = world.Settings;
                 Vector3 position = world.Player.transform.position - world.transform.position;
-                int chunk = Mathf.Clamp(Mathf.FloorToInt(position.y / metrics.ChunkHeight), 0, metrics.LastRow / metrics.RowsPerChunk);
+                int chunk = Mathf.Clamp(
+                    Mathf.FloorToInt(position.y / metrics.ChunkHeight), 0, metrics.LastRow / metrics.RowsPerChunk);
                 Line(x, ref y, contentWidth, $"Seed: {world.CurrentSeed}");
                 Line(x, ref y, contentWidth, $"Height: {position.y:F1} / {metrics.LastRow * metrics.RowHeight:F0}   |   Chunk: {chunk}");
                 Line(x, ref y, contentWidth, $"Loaded: {world.LoadedChunkCount} chunks / {world.ActivePlatformCount} ledges");
                 Line(x, ref y, contentWidth, $"Queue: {world.PendingPlatformCount} ledges   |   Enemies: {world.ActiveEnemyCount}");
-                Line(x, ref y, contentWidth, $"Chunk: {metrics.ChunkHeight:F0}u / {metrics.RowsPerChunk} ledges   |   Budget: {Mathf.Clamp(settings.platformsPerFrame, 1, 12)}/frame");
+                Line(x, ref y, contentWidth,
+                    $"Chunk: {metrics.ChunkHeight:F0}u / {metrics.RowsPerChunk} ledges   |   Budget: {Mathf.Clamp(settings.platformsPerFrame, 1, 12)}/frame");
                 Line(x, ref y, contentWidth, $"Width: {settings.pillarWidth:F0}u   |   Solid rock / 4 shapes");
                 Line(x, ref y, contentWidth, $"Load: +{world.LoadAboveDistance:F0} / -{world.KeepBelowDistance:F0}u   |   Buffer: {settings.unloadBuffer:F0}u");
-                Line(x, ref y, contentWidth, $"Checkpoint: {world.GetLanding(world.CheckpointRow).Center.y:F0}u   |   {(world.IsFallBouncing ? "Fall bounce" : "Streaming")}");
+                Line(x, ref y, contentWidth,
+                    $"Checkpoint: {world.GetLanding(world.CheckpointRow).Center.y:F0}u   |   {(world.IsFallBouncing ? "Fall bounce" : "Streaming")}");
                 y += 4;
                 DrawMap(new Rect(x, y, contentWidth, 160), position);
                 y += 164;
-                GUI.Label(new Rect(x, y, contentWidth, 16), "Green loaded   Orange queued   Gray unloaded", small); y += 16;
+                GUI.Label(new Rect(x, y, contentWidth, 16), "Green loaded   Orange queued   Gray unloaded", small);
+                y += 16;
                 GUI.Label(new Rect(x, y, contentWidth, 16), "Yellow player   Cyan marker   White camera", small);
             }
             else GUI.Label(new Rect(x, y, contentWidth, 18), "No active pillar generator", small);
@@ -75,9 +88,15 @@ namespace AscendJigoku.Debugging
             GUI.depth = previousDepth;
         }
 
+        // One text row; advances y so rows stack downward.
         private void Line(float x, ref float y, float width, string text)
-        { GUI.Label(new Rect(x, y, width, 20), text, label); y += 20; }
+        {
+            GUI.Label(new Rect(x, y, width, 20), text, label);
+            y += 20;
+        }
 
+        // Side view of the pillar around the player: one bar per ledge (green built, orange queued, gray not loaded yet),
+        // chunk boundaries, height markers, the camera view box and the player. MapX/MapY convert world units to the rect.
         private void DrawMap(Rect rect, Vector3 playerPosition)
         {
             var metrics = world.Metrics;
@@ -143,7 +162,9 @@ namespace AscendJigoku.Debugging
         private static void Fill(Rect rect, Color color)
         {
             Color previous = GUI.color;
-            GUI.color = color; GUI.DrawTexture(rect, Texture2D.whiteTexture); GUI.color = previous;
+            GUI.color = color;
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.color = previous;
         }
 #endif
     }

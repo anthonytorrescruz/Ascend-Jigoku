@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// Plays an enemy's attack/hurt/death clips with slight random pitch variation and a short minimum gap between cues.
+// Called by EnemyCombat (attack) and EnemyHealth (hurt/death).
 [RequireComponent(typeof(AudioSource))]
 public class EnemySounds : MonoBehaviour
 {
@@ -12,6 +14,8 @@ public class EnemySounds : MonoBehaviour
     [SerializeField, Range(0f, 0.3f)] private float pitchVariation = 0.1f;
 
     private AudioSource source;
+    private float nextCueAt;
+    [SerializeField, Range(0,1)] private float cueVolume = .75f;
 
     void Awake()
     {
@@ -30,8 +34,9 @@ public class EnemySounds : MonoBehaviour
 
     private void Play(AudioClip clip)
     {
-        if (clip == null) return;
+        if (AscendJigoku.Gameplay.VictoryFlow.IsPlaying || clip == null || Time.unscaledTime < nextCueAt) return;
+        nextCueAt = Time.unscaledTime + .08f;
         source.pitch = 1f + Random.Range(-pitchVariation, pitchVariation);
-        source.PlayOneShot(clip, AscendJigoku.Settings.GameSettings.SfxVolume);
+        source.PlayOneShot(clip, cueVolume * AscendJigoku.Settings.GameSettings.SfxVolume);
     }
 }

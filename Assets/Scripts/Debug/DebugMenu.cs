@@ -15,14 +15,20 @@ namespace AscendJigoku.Debugging
         public static bool IsOpen { get; private set; }
         public static float DisplayScale => Mathf.Clamp(Screen.height / 720f, 0.65f, 2f);
 
+        // The three public calls below compile away outside the editor and development builds.
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
         public static void Watch<T>(UnityEngine.Object owner, string category, string label, Func<T> getter)
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (getter == null) throw new ArgumentNullException(nameof(getter));
-            Register(new Entry { Owner = owner, Category = category, Label = label,
-                Read = () => Convert.ToString(getter()) });
+            Register(new Entry
+            {
+                Owner = owner,
+                Category = category,
+                Label = label,
+                Read = () => Convert.ToString(getter())
+            });
 #endif
         }
 
@@ -50,10 +56,11 @@ namespace AscendJigoku.Debugging
         private sealed class Entry
         {
             public UnityEngine.Object Owner;
+            // Value is the cached text from Read(), refreshed every 0.1s while the menu is open.
             public string Category, Label, Value;
             public Func<string> Read;
             public System.Action Run;
-            public int Key;
+            public int Key; // 1-9 for actions, 0 for watched values
         }
         private static readonly List<Entry> entries = new List<Entry>();
         private static DebugMenu instance;
@@ -67,6 +74,7 @@ namespace AscendJigoku.Debugging
             IsOpen = false;
         }
 
+        // Spawns the menu object automatically before the first scene, so no scene setup is needed.
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Create()
         {
@@ -75,7 +83,12 @@ namespace AscendJigoku.Debugging
 
         private void Awake()
         {
-            if (instance != null && instance != this) { Destroy(this); return; }
+            if (instance != null && instance != this)
+            {
+                Destroy(this);
+                return;
+            }
+
             instance = this;
             DontDestroyOnLoad(gameObject);
             gameObject.AddComponent<WorldDebugOverlay>();
@@ -88,6 +101,7 @@ namespace AscendJigoku.Debugging
                 throw new ArgumentException("Category and label are required.");
             entries.RemoveAll(e => e.Owner == entry.Owner && e.Category == entry.Category && e.Label == entry.Label);
             entries.Add(entry);
+            // Sorted by category so the world panel groups related values together.
             entries.Sort((a, b) => string.CompareOrdinal(a.Category, b.Category));
         }
 
@@ -111,8 +125,16 @@ namespace AscendJigoku.Debugging
                 Entry action = null;
                 int matches = 0;
                 foreach (Entry entry in entries)
-                    if (entry.Owner != null && entry.Key == key) { action = entry; matches++; }
-                if (matches > 1) { Debug.LogWarning("Debug key " + key + " is assigned more than once."); continue; }
+                    if (entry.Owner != null && entry.Key == key)
+                    {
+                        action = entry;
+                        matches++;
+                    }
+                if (matches > 1)
+                {
+                    Debug.LogWarning("Debug key " + key + " is assigned more than once.");
+                    continue;
+                }
                 if (action == null) continue;
                 RunAction(action);
                 RefreshValues();
@@ -133,13 +155,19 @@ namespace AscendJigoku.Debugging
         {
             if (!IsOpen || Time.timeScale <= 0) return;
             visibleActions.Clear();
-            foreach (Entry entry in entries) if (entry.Owner != null && entry.Run != null) visibleActions.Add(entry);
+            foreach (Entry entry in entries)
+                if (entry.Owner != null && entry.Run != null) visibleActions.Add(entry);
             if (visibleActions.Count == 0) return;
             visibleActions.Sort((a, b) => a.Key.CompareTo(b.Key));
             if (buttonStyle == null)
             {
                 buttonStyle = new GUIStyle(GUI.skin.button) { fontSize = 14, alignment = TextAnchor.MiddleLeft };
-                headerStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = Color.white } };
+                headerStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 14,
+                    fontStyle = FontStyle.Bold,
+                    normal = { textColor = Color.white }
+                };
             }
             float scale = DisplayScale;
             Matrix4x4 previous = GUI.matrix;
@@ -153,13 +181,21 @@ namespace AscendJigoku.Debugging
             for (int i = 0; i < visibleActions.Count; i++)
             {
                 Entry entry = visibleActions[i];
-                if (GUI.Button(new Rect(panel.x + 8, panel.y + 32 + i * row, width - 16, row - 4), "  " + entry.Key + "    " + entry.Label, buttonStyle))
+                if (GUI.Button(
+                    new Rect(panel.x + 8, panel.y + 32 + i * row, width - 16, row - 4),
+                    "  " + entry.Key + "    " + entry.Label,
+                    buttonStyle))
                     clicked = entry;
             }
             GUI.matrix = previous;
-            if (clicked != null) { RunAction(clicked); RefreshValues(); }
+            if (clicked != null)
+            {
+                RunAction(clicked);
+                RefreshValues();
+            }
         }
 
+        // number 0 is F1 (toggle); 1-9 are the digit keys, for either input backend.
         private static bool Pressed(int number)
         {
 #if ENABLE_INPUT_SYSTEM
@@ -176,6 +212,7 @@ namespace AscendJigoku.Debugging
 
         private void RefreshValues()
         {
+            // ToArray: an action's Read may register or remove entries while we iterate.
             foreach (Entry entry in entries.ToArray())
             {
                 if (entry.Owner == null || entry.Read == null) continue;
@@ -184,6 +221,7 @@ namespace AscendJigoku.Debugging
             }
         }
 
+        // Watched values belonging to one entity, as extra lines for WorldDebugOverlay's label above it.
         internal static string Readout(Component entity)
         {
             var text = new System.Text.StringBuilder();
@@ -205,8 +243,19 @@ namespace AscendJigoku.Debugging
             GUI.color = previous;
         }
 
-        private void OnDisable() { if (instance == this) IsOpen = false; }
-        private void OnDestroy() { if (instance == this) { instance = null; IsOpen = false; } }
+        private void OnDisable()
+        {
+            if (instance == this) IsOpen = false;
+        }
+
+        private void OnDestroy()
+        {
+            if (instance == this)
+            {
+                instance = null;
+                IsOpen = false;
+            }
+        }
 #endif
     }
 }

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GrimDeath
   m_EditorClassIdentifier: Assembly-CSharp::GrimDeathSettings
   bossName: GRIM DEATH
-  health: 25
+  health: 10
   checkpointMarkerIndex: 1
   rowsBeforeCheckpoint: 3
   ceilingHeight: 18
@@ -26,7 +26,7 @@ MonoBehaviour:
   stepFadeSeconds: 0.18
   stepRecovery: 0.28
   stepBehindDistance: 3.4
-  recoverySeconds: 0.65
+  recoverySeconds: 0.9
   parryStunSeconds: 0.8
   scytheWindupFrames: 27
   scytheActiveFrames: 8
@@ -144,7 +144,7 @@ MonoBehaviour:
   - {fileID: 853131751, guid: e513e595358d91943b2f99b06f7ba024, type: 3}
   framesPerSecond: 10
   shadowColor: {r: 0.52, g: 0.26, b: 0.9, a: 1}
-  warningColor: {r: 0.82, g: 0.64, b: 1, a: 0.8}
+  warningColor: {r: 1, g: 0.74, b: 0.32, a: 0.9}
   music: {fileID: 8300000, guid: e59a747832ef77c49a604222c1c2fc34, type: 3}
   scytheSound: {fileID: 8300000, guid: 2b2ba0a4a9c3d8e4c93eb665cbcd0a95, type: 3}
   stepSound: {fileID: 8300000, guid: e1a86609d2956f14f91f2dbd83d1ea3c, type: 3}
@@ -156,6 +156,6 @@ MonoBehaviour:
   pillarSound: {fileID: 8300000, guid: e72e117643c11e348a9307e4098a8b99, type: 3}
   burstSound: {fileID: 8300000, guid: d10b9dac87b68b043959e6627d6ac8a8, type: 3}
   musicVolume: 0.32
-  effectsVolume: 0.65
+  effectsVolume: 0.55
   bossPrefab: {fileID: 2987668218292718862, guid: fb0bb8f5486565e4e8210dbe8b66d7ff, type: 3}
   spiritPrefab: {fileID: 3425202323690436802, guid: 38a09922b95a99f45bfbf74a0e710844, type: 3}

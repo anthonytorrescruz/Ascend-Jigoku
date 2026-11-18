@@ -1,5 +1,6 @@
 using UnityEngine;
 
+// Tuning values for FireWormBoss: ranges, cooldowns, attack sizes and damage, and the optional three health phases.
 [CreateAssetMenu(menuName = "Ascend Jigoku/Fire Worm Boss Settings")]
 public sealed class FireWormBossSettings : ScriptableObject
 {

@@ -61,7 +61,9 @@ namespace AscendJigoku.UI
             if (!lit || label == null) return;
             var rect = (RectTransform)transform;
             float width = Mathf.Min(label.preferredWidth, rect.rect.width);
-            float x = label.alignment == TextAnchor.MiddleLeft || label.alignment == TextAnchor.UpperLeft || label.alignment == TextAnchor.LowerLeft
+            // Left-aligned labels put the marker left of the button; centered ones put it left of the text.
+            float x = label.alignment == TextAnchor.MiddleLeft || label.alignment == TextAnchor.UpperLeft
+                || label.alignment == TextAnchor.LowerLeft
                 ? -rect.rect.width * 0.5f - Gap
                 : -width * 0.5f - Gap;
             marker.anchoredPosition = new Vector2(x, 0);

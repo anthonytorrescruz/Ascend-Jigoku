@@ -1,12 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// Drives the enemy's Animator bool parameters (Moving, WindingUp, Attacking, Hurt, Dead, Flying) from brain, motor and
+// combat state, and flips the sprite to face the target or direction of travel. Parameters missing from the controller are skipped.
 [RequireComponent(typeof(SpriteRenderer), typeof(Animator), typeof(EnemyBrain))]
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(100)]   // after EnemyCombat, which assumes right-facing art when it flips at windup
 public sealed class EnemyAnimator : MonoBehaviour
 {
     [SerializeField] private bool artFacesRight = true;
     [Min(0)] [SerializeField] private float moveThreshold = 0.1f;
+    [Min(0)] [SerializeField] private float turnThreshold = 0.5f;
 
     private static readonly int Moving = Animator.StringToHash("Moving");
     private static readonly int WindingUp = Animator.StringToHash("WindingUp");
@@ -60,8 +64,12 @@ public sealed class EnemyAnimator : MonoBehaviour
         SetBool(Moving, moving);
         SetBool(Flying, flying);
 
-        // EnemyCombat sets flipX at windup start; don't fight it during an attack.
-        if (!dead && !windingUp && !attacking && Mathf.Abs(motor.Velocity.x) > moveThreshold)
-            sprite.flipX = (motor.Velocity.x < 0) == artFacesRight;
+        // Face the target while attacking, otherwise the way it's moving. The dead zone (turnThreshold) stops hovering
+        // flyers flip-flopping.
+        float faceX = windingUp || attacking
+            ? (combat.Target != null ? combat.Target.transform.position.x - transform.position.x : 0)
+            : motor.Velocity.x;
+        if (!dead && !hurt && Mathf.Abs(faceX) > turnThreshold)
+            sprite.flipX = (faceX < 0) == artFacesRight;
     }
 }

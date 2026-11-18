@@ -2,17 +2,25 @@ using UnityEngine;
 
 namespace AscendJigoku.Gameplay
 {
+    // Placeholder CurrencyWallet with an editor-set coin count, used until a real economy exists.
     public sealed class PrototypeWallet : CurrencyWallet
     {
         [Tooltip("Editor-tweakable test balance. No enemy drops or real currency economy are implemented.")]
         [Min(0)] public int testCoins = 500;
         public override int Balance => Mathf.Max(0, testCoins);
         public override string CurrencyName => "Test coins (placeholder)";
+
         public override bool TrySpend(int amount)
         {
             if (amount < 0 || amount > Balance) return false;
-            testCoins -= amount; return true;
+            testCoins -= amount;
+            return true;
         }
-        public override bool TrySetBalance(int amount) { testCoins = Mathf.Max(0, amount); return true; }
+
+        public override bool TrySetBalance(int amount)
+        {
+            testCoins = Mathf.Max(0, amount);
+            return true;
+        }
     }
 }

@@ -19,6 +19,8 @@ public sealed class EnemyDefinition : ScriptableObject
     [Min(1)] public float bodyMass = 100;
     [Min(0)] public float patrolRadius = 2;
     [Min(0)] public float stoppingDistance = 0.7f;
+    // Brain engages inside aggroRadius, keeps tracking out to 1.25x that, and disengages past leashRadius
+    // (from home or from the player) or after loseSightSeconds without seeing the player. World units / seconds.
     [Min(0.1f)] public float aggroRadius = 7;
     [Min(0.1f)] public float leashRadius = 12;
     [Min(0)] public float loseSightSeconds = 1.5f;

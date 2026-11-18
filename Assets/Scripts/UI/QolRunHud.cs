@@ -34,7 +34,13 @@ namespace AscendJigoku.UI
             var gen = FindAnyObjectByType<VerticalLevelGenerator>();
             if (gen == null || gen.gameObject.scene != scene)
             {
-                if (scene.name == "MainMenu") { Deaths = 0; Seconds = 0; hasSeed = false; }
+                // Returning to the main menu ends the run, so its totals reset.
+                if (scene.name == "MainMenu")
+                {
+                    Deaths = 0;
+                    Seconds = 0;
+                    hasSeed = false;
+                }
                 return;
             }
             if (FindAnyObjectByType<QolRunHud>() != null) return;
@@ -59,26 +65,42 @@ namespace AscendJigoku.UI
             return (string.IsNullOrEmpty(zone) ? "" : zone + "   |   ") + "Height " + Mathf.RoundToInt(height) + "   |   " + text;
         }
 
+        // m:ss.t, or h:mm:ss.t from one hour up.
         public static string FormatTime(float seconds)
         {
             int total = Mathf.FloorToInt(seconds), tenths = Mathf.FloorToInt((seconds - total) * 10);
-            return total >= 3600 ? $"{total / 3600}:{total / 60 % 60:00}:{total % 60:00}.{tenths}" : $"{total / 60}:{total % 60:00}.{tenths}";
+            return total >= 3600
+                ? $"{total / 3600}:{total / 60 % 60:00}:{total % 60:00}.{tenths}"
+                : $"{total / 60}:{total % 60:00}.{tenths}";
         }
 
         private void Start()
         {
             generator = FindAnyObjectByType<VerticalLevelGenerator>();
             health = FindAnyObjectByType<PlayerHealth>();
-            if (generator == null) { Destroy(gameObject); return; }
-            if (!hasSeed || seed != generator.CurrentSeed) { Deaths = 0; Seconds = 0; seed = generator.CurrentSeed; hasSeed = true; }
+            if (generator == null)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            // A different seed means a new run, so the death count and timer start over.
+            if (!hasSeed || seed != generator.CurrentSeed)
+            {
+                Deaths = 0;
+                Seconds = 0;
+                seed = generator.CurrentSeed;
+                hasSeed = true;
+            }
             lastCheckpoint = generator.CheckpointRow;
             var canvas = MenuStyle.CreateCanvas("Run Canvas", 6, transform);
-            timer = MenuStyle.Label(canvas, "Timer", "", Vector2.zero, new Vector2(300, 32), 24, TextAnchor.MiddleRight, MenuStyle.MutedText);
+            timer = MenuStyle.Label(
+                canvas, "Timer", "", Vector2.zero, new Vector2(300, 32), 24, TextAnchor.MiddleRight, MenuStyle.MutedText);
             var rect = timer.rectTransform;
             rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one;
-            rect.anchoredPosition = new Vector2(-24, -20);
+            rect.anchoredPosition = new Vector2(-44, -72); // under the HUD coin count
         }
 
+        // Shows a toast on each new checkpoint and counts run time while the player is alive and the game isn't paused.
         private void Update()
         {
             if (generator == null) return;

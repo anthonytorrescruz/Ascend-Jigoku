@@ -22,20 +22,47 @@ namespace AscendJigoku.UI
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => AddTo(scene);
 
-        public static void OpenSettings() => SettingsMenu.Open(null);
+        // Menu buttons stay behind the settings screen, so switch them off or arrow keys can land on them.
+        public static void OpenSettings()
+        {
+            if (SettingsMenu.IsOpen) return;
+            var covered = new List<Button>();
+            foreach (var button in Object.FindObjectsByType<Button>())
+                if (button.interactable)
+                {
+                    button.interactable = false;
+                    covered.Add(button);
+                }
+            var events = UnityEngine.EventSystems.EventSystem.current;
+            var selected = events != null ? events.currentSelectedGameObject : null;
+            SettingsMenu.Open(() =>
+            {
+                foreach (var button in covered)
+                    if (button != null) button.interactable = true;
+                // Put the highlight back on whatever was selected before settings opened.
+                if (selected != null && selected.TryGetComponent<Selectable>(out var previous))
+                    MenuStyle.SelectForController(previous);
+            });
+        }
 
         private static bool continuing;
 
         public static void ContinueSavedRun()
         {
             if (continuing || !RunSave.TryLoad(out var save)) return;
-            if (!Application.CanStreamedLevelBeLoaded(save.scene)) { Debug.LogError("Saved run scene is not in the build list: " + save.scene); return; }
+            if (!Application.CanStreamedLevelBeLoaded(save.scene))
+            {
+                Debug.LogError("Saved run scene is not in the build list: " + save.scene);
+                return;
+            }
             continuing = true;
             Time.timeScale = 1;
             VerticalLevelGenerator.ContinueRun(save);
             SceneManager.LoadScene(save.scene);
         }
 
+        // Finds the scene's START and QUIT buttons by the method names in their On Click events, then clones QUIT
+        // for SETTINGS/TUTORIAL (and START for CONTINUE) and restyles the whole stack.
         private static void AddTo(Scene scene)
         {
             continuing = false;
@@ -72,21 +99,31 @@ namespace AscendJigoku.UI
                 resume = Copy(start, "Continue Button", "CONTINUE", ContinueSavedRun);
                 // START would wipe the save, so make it explicit and ask twice.
                 SetLabel(start, "NEW RUN");
-                bool armed = false;
+                float armedAt = float.NegativeInfinity;   // a confirm only counts within 4s of arming
                 start.onClick = new Button.ButtonClickedEvent();
                 start.onClick.AddListener(() =>
                 {
-                    if (!armed) { armed = true; SetLabel(start, "CONFIRM NEW RUN"); return; }
+                    if (Time.unscaledTime - armedAt > 4)
+                    {
+                        armedAt = Time.unscaledTime;
+                        SetLabel(start, "CONFIRM NEW RUN");
+                        return;
+                    }
                     menu.StartGame();
                 });
                 // TUTORIAL also starts a new run (it replaces the save), so it asks twice as well.
                 if (tutorial != null)
                 {
-                    bool tutorialArmed = false;
+                    float tutorialArmedAt = float.NegativeInfinity;
                     tutorial.onClick = new Button.ButtonClickedEvent();
                     tutorial.onClick.AddListener(() =>
                     {
-                        if (!tutorialArmed) { tutorialArmed = true; SetLabel(tutorial, "CONFIRM TUTORIAL"); return; }
+                        if (Time.unscaledTime - tutorialArmedAt > 4)
+                        {
+                            tutorialArmedAt = Time.unscaledTime;
+                            SetLabel(tutorial, "CONFIRM TUTORIAL");
+                            return;
+                        }
                         menu.StartTutorial();
                     });
                 }
@@ -102,6 +139,7 @@ namespace AscendJigoku.UI
             MenuSceneSkin.SkinMainMenu(menu, order);
         }
 
+        // Clone of an existing menu button with a fresh click handler, so it inherits the scene's look and layout.
         private static Button Copy(Button source, string name, string label, UnityEngine.Events.UnityAction onClick)
         {
             var copy = Object.Instantiate(source, source.transform.parent);

@@ -9,6 +9,7 @@ using UnityEngine.UI;
 namespace AscendJigoku.Gameplay
 {
     // This entire flow is attached only to AnthonyScene. Main scenes and menu artwork are untouched.
+    // Drives that test scene: title/pause/death/victory menus (built in code), HUD labels and the Fire Worm boss readout.
     [DefaultExecutionOrder(-600)]
     public sealed class AnthonySession : MonoBehaviour
     {
@@ -28,28 +29,47 @@ namespace AscendJigoku.Gameplay
         public ActiveInputPrompts Prompts => prompts;
         public Button FirstButton => buttons[0];
         public string HealthText => healthLabel != null ? healthLabel.text : "";
+
         private void Awake()
         {
             prompts = gameObject.AddComponent<ActiveInputPrompts>();
             controlLock = player.GetComponent<PlayerControlLock>();
-            pause = new InputAction("PauseTestScene", InputActionType.Button, "<Keyboard>/escape"); pause.AddBinding("<Gamepad>/start");
+            pause = new InputAction("PauseTestScene", InputActionType.Button, "<Keyboard>/escape");
+            pause.AddBinding("<Gamepad>/start");
             CreateUI();
         }
+
         private void OnEnable() => pause.Enable();
-        private void OnDisable() { pause.Disable(); Time.timeScale = 1; }
-        private void OnDestroy() { pause.Dispose(); if (player != null) player.HealthChanged -= UpdateHealth; if (boss != null) boss.GetComponent<EnemyHealth>().HealthChanged -= OnBossHealth; }
+
+        private void OnDisable()
+        {
+            pause.Disable();
+            Time.timeScale = 1;
+        }
+
+        private void OnDestroy()
+        {
+            pause.Dispose();
+            if (player != null) player.HealthChanged -= UpdateHealth;
+            if (boss != null) boss.GetComponent<EnemyHealth>().HealthChanged -= OnBossHealth;
+        }
+
         private void Start()
         {
             player.HealthChanged += UpdateHealth;
-            UpdateHealth(player.CurrentHealth, player.MaxHealth); goalLabel.text = "Visit the checkpoint merchant, then cross right to fight the Fire Worm.";
+            UpdateHealth(player.CurrentHealth, player.MaxHealth);
+            goalLabel.text = "Visit the checkpoint merchant, then cross right to fight the Fire Worm.";
             if (boss != null) boss.GetComponent<EnemyHealth>().HealthChanged += OnBossHealth;
             ShowTitle();
         }
+
         private void Update()
         {
             controlsLabel.text = prompts.Controls;
             var shop = player.GetComponent<ShopMenu>();
             if (pause.WasPressedThisFrame() && lastBackFrame != Time.frameCount && (shop == null || !shop.ConsumesBackInput)) Back();
+
+            // Boss readout only appears while fighting and within 22 units of the boss.
             if (GameplayActive && boss != null)
             {
                 var hp = boss.GetComponent<EnemyHealth>();
@@ -59,28 +79,54 @@ namespace AscendJigoku.Gameplay
             else bossLabel.text = "";
             if (modal.activeSelf) hint.text = $"{prompts.Confirm}: select    {prompts.Back}: back";
         }
+
+        // Plain-language hint about the boss's current windup, shown under its health.
         private string BossTell() => boss.State == FireWormState.SlamWindup ? "SLAM - leave the marked ground, or parry / pogo the impact"
             : boss.State == FireWormState.VolleyWindup ? "FAN VOLLEY - jump the spread, parry, or pogo a fireball"
             : boss.State == FireWormState.FireballWindup ? "AIMED FIREBALL - dodge, parry, or pogo"
             : boss.State == FireWormState.Transition ? "PHASE CHANGE - recovery opportunity"
             : boss.State == FireWormState.Recovery || boss.State == FireWormState.Stunned ? "OPENING - strike now" : "";
-        private void OnBossHealth(int health, int maximum) { if (health <= 0) StartCoroutine(VictoryAfterDeathAnimation()); }
+
+        private void OnBossHealth(int health, int maximum)
+        {
+            if (health <= 0) StartCoroutine(VictoryAfterDeathAnimation());
+        }
+
+        // Wait out the boss death animation before showing the victory screen.
         private System.Collections.IEnumerator VictoryAfterDeathAnimation()
-        { yield return new WaitForSeconds(1.15f); ShowVictory(); }
+        {
+            yield return new WaitForSeconds(1.15f);
+            ShowVictory();
+        }
+
         private void UpdateHealth(int current, int max) => healthLabel.text = $"HEALTH  {current} / {max}";
+
+        // Freezes gameplay (time scale 0, input locked) and frees the cursor for a menu screen.
         private void PauseWorld(ScreenMode mode)
         {
-            Mode = mode; controlLock.Lock(); Time.timeScale = 0;
-            Cursor.visible = true; Cursor.lockState = CursorLockMode.None;
+            Mode = mode;
+            controlLock.Lock();
+            Time.timeScale = 0;
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
         }
+
         public void ShowTitle()
         {
             PauseWorld(ScreenMode.Title);
             ShowMenu("ANTHONY'S PLAYGROUND", "Visit the merchant on the blue checkpoint to try upgrades.\nE / Y opens the shop. Test coins and upgrades reset with the scene.\n\nCross the gap to fight the Fire Worm.\nThree phases: aimed fireballs, fan volleys and slam shockwaves.",
                 new[] { "START", "QUIT" }, new Action[] { StartPlaying, AscendJigoku.UI.MainMenu.QuitApplication });
         }
+
         public void StartPlaying()
-        { if (Mode != ScreenMode.Title && Mode != ScreenMode.Pause) return; Mode = ScreenMode.Playing; modal.SetActive(false); Time.timeScale = 1; controlLock.Unlock(); }
+        {
+            if (Mode != ScreenMode.Title && Mode != ScreenMode.Pause) return;
+            Mode = ScreenMode.Playing;
+            modal.SetActive(false);
+            Time.timeScale = 1;
+            controlLock.Unlock();
+        }
+
         public void ShowPause()
         {
             if (!GameplayActive) return;
@@ -88,6 +134,7 @@ namespace AscendJigoku.Gameplay
             ShowMenu("PAUSED", "Take a breath. Your run is preserved.", new[] { "RESUME", "NEW RUN", "QUIT" },
                 new Action[] { StartPlaying, Reload, AscendJigoku.UI.MainMenu.QuitApplication });
         }
+
         public void ShowDeath()
         {
             if (Mode == ScreenMode.Dead || Mode == ScreenMode.Victory) return;
@@ -96,6 +143,7 @@ namespace AscendJigoku.Gameplay
                 new Action[] { Reload, AscendJigoku.UI.MainMenu.QuitApplication });
             title.color = new Color(1, 0.2f, 0.15f);
         }
+
         public void ShowVictory()
         {
             if (Mode == ScreenMode.Victory || Mode == ScreenMode.Dead) return;
@@ -103,18 +151,34 @@ namespace AscendJigoku.Gameplay
             ShowMenu("VICTORY", "The Fire Worm is defeated. Try a new run to test different upgrades.", new[] { "NEW RUN", "QUIT" },
                 new Action[] { Reload, AscendJigoku.UI.MainMenu.QuitApplication });
         }
+
+        // Back/Esc/Start: resume from pause, open pause during play. lastBackFrame stops a double trigger in one frame.
         public void Back()
         {
             if (lastBackFrame == Time.frameCount) return;
             lastBackFrame = Time.frameCount;
-            if (Mode == ScreenMode.Pause) { StartPlaying(); return; }
-            if (GameplayActive) { ShowPause(); return; }
+            if (Mode == ScreenMode.Pause)
+            {
+                StartPlaying();
+                return;
+            }
+
+            if (GameplayActive)
+            {
+                ShowPause();
+                return;
+            }
+
             // Root menus cannot silently resume a dead/finished run. Back selects their safe first action.
             SelectFirst();
         }
+
+        // Reloads this scene as a fresh run (editor needs LoadSceneInPlayMode for scenes outside build settings).
         public void Reload()
         {
-            if (leaving) return; leaving = true; Time.timeScale = 1;
+            if (leaving) return;
+            leaving = true;
+            Time.timeScale = 1;
             string path = gameObject.scene.path;
 #if UNITY_EDITOR
             UnityEditor.SceneManagement.EditorSceneManager.LoadSceneInPlayMode(path, new LoadSceneParameters(LoadSceneMode.Single));
@@ -122,23 +186,43 @@ namespace AscendJigoku.Gameplay
             SceneManager.LoadScene(path, LoadSceneMode.Single);
 #endif
         }
+
         private void SelectFirst()
-        { if (EventSystem.current != null) { EventSystem.current.SetSelectedGameObject(null); EventSystem.current.SetSelectedGameObject(buttons[0].gameObject); } }
+        {
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+                EventSystem.current.SetSelectedGameObject(buttons[0].gameObject);
+            }
+        }
+
+        // Reuses the three pre-built buttons: shows one per label, wires its action and loops up/down navigation.
         private void ShowMenu(string heading, string content, string[] labels, Action[] actions)
         {
-            modal.SetActive(true); title.text = heading; title.color = Color.white; body.text = content;
+            modal.SetActive(true);
+            title.text = heading;
+            title.color = Color.white;
+            body.text = content;
             for (int i = 0; i < buttons.Length; i++)
             {
-                bool active = i < labels.Length; buttons[i].gameObject.SetActive(active); buttons[i].onClick.RemoveAllListeners();
+                bool active = i < labels.Length;
+                buttons[i].gameObject.SetActive(active);
+                buttons[i].onClick.RemoveAllListeners();
                 if (!active) continue;
                 int slot = i;
                 buttons[i].GetComponentInChildren<Text>().text = labels[i];
                 buttons[i].onClick.AddListener(() => actions[slot]());
-                var nav = buttons[i].navigation; nav.mode = Navigation.Mode.Explicit;
-                nav.selectOnUp = buttons[(i + labels.Length - 1) % labels.Length]; nav.selectOnDown = buttons[(i + 1) % labels.Length]; buttons[i].navigation = nav;
+                var nav = buttons[i].navigation;
+                nav.mode = Navigation.Mode.Explicit;
+                nav.selectOnUp = buttons[(i + labels.Length - 1) % labels.Length];
+                nav.selectOnDown = buttons[(i + 1) % labels.Length];
+                buttons[i].navigation = nav;
             }
+
             SelectFirst();
         }
+
+        // Builds the HUD labels and the modal menu in code. Sizes and positions are in a 1600x900 reference canvas.
         private void CreateUI()
         {
             if (EventSystem.current == null)
@@ -149,14 +233,20 @@ namespace AscendJigoku.Gameplay
             var root = new GameObject("Anthony Runtime UI", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             root.transform.SetParent(transform, false);
             root.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = root.GetComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1600, 900); scaler.matchWidthOrHeight = 0.5f;
+            var scaler = root.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1600, 900);
+            scaler.matchWidthOrHeight = 0.5f;
             healthLabel = Label(root.transform, "Health", new Vector2(0, 1), new Vector2(25, -25), new Vector2(300, 45), 30, TextAnchor.UpperLeft);
             goalLabel = Label(root.transform, "Objective", new Vector2(0, 1), new Vector2(25, -80), new Vector2(650, 60), 23, TextAnchor.UpperLeft);
             bossLabel = Label(root.transform, "Boss status", new Vector2(0.5f, 1), new Vector2(0, -25), new Vector2(850, 110), 26, TextAnchor.UpperCenter);
             controlsLabel = Label(root.transform, "Controls", new Vector2(0.5f, 0), new Vector2(0, 20), new Vector2(1530, 65), 20, TextAnchor.LowerCenter);
-            modal = new GameObject("Menu", typeof(RectTransform), typeof(Image)); modal.transform.SetParent(root.transform, false);
-            var mr = (RectTransform)modal.transform; mr.anchorMin = Vector2.zero; mr.anchorMax = Vector2.one; mr.offsetMin = mr.offsetMax = Vector2.zero;
+            modal = new GameObject("Menu", typeof(RectTransform), typeof(Image));
+            modal.transform.SetParent(root.transform, false);
+            var mr = (RectTransform)modal.transform;
+            mr.anchorMin = Vector2.zero;
+            mr.anchorMax = Vector2.one;
+            mr.offsetMin = mr.offsetMax = Vector2.zero;
             modal.GetComponent<Image>().color = new Color(0.025f, 0.025f, 0.035f, 0.96f);
             title = Label(modal.transform, "Title", new Vector2(0.5f, 0.5f), new Vector2(0, 290), new Vector2(1320, 90), 52, TextAnchor.MiddleCenter);
             title.fontStyle = FontStyle.Bold;
@@ -164,26 +254,41 @@ namespace AscendJigoku.Gameplay
             for (int i = 0; i < buttons.Length; i++)
             {
                 var go = new GameObject("Option " + i, typeof(RectTransform), typeof(Image), typeof(Button), typeof(MenuBackHandler));
-                go.transform.SetParent(modal.transform, false); Place((RectTransform)go.transform, new Vector2(0.5f, 0.5f), new Vector2(0, -90 - i * 82), new Vector2(500, 66));
+                go.transform.SetParent(modal.transform, false);
+                Place((RectTransform)go.transform, new Vector2(0.5f, 0.5f), new Vector2(0, -90 - i * 82), new Vector2(500, 66));
                 go.GetComponent<Image>().color = new Color(0.19f, 0.2f, 0.24f);
                 buttons[i] = go.GetComponent<Button>();
-                var colors = buttons[i].colors; colors.selectedColor = new Color(0.55f, 0.7f, 1); colors.highlightedColor = colors.selectedColor; buttons[i].colors = colors;
+                var colors = buttons[i].colors;
+                colors.selectedColor = new Color(0.55f, 0.7f, 1);
+                colors.highlightedColor = colors.selectedColor;
+                buttons[i].colors = colors;
                 go.GetComponent<MenuBackHandler>().session = this;
                 Label(go.transform, "Text", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(480, 60), 29, TextAnchor.MiddleCenter);
             }
+
             hint = Label(modal.transform, "Menu controls", new Vector2(0.5f, 0), new Vector2(0, 30), new Vector2(1200, 55), 23, TextAnchor.LowerCenter);
         }
+
         private static Text Label(Transform parent, string name, Vector2 anchor, Vector2 position, Vector2 size, int fontSize, TextAnchor alignment)
         {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Text)); go.transform.SetParent(parent, false);
+            var go = new GameObject(name, typeof(RectTransform), typeof(Text));
+            go.transform.SetParent(parent, false);
             Place((RectTransform)go.transform, anchor, position, size);
-            var text = go.GetComponent<Text>(); text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            text.fontSize = fontSize; text.color = Color.white; text.alignment = alignment; text.raycastTarget = false;
+            var text = go.GetComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.fontSize = fontSize;
+            text.color = Color.white;
+            text.alignment = alignment;
+            text.raycastTarget = false;
             return text;
         }
+
         private static void Place(RectTransform rect, Vector2 anchor, Vector2 position, Vector2 size)
         {
-            rect.anchorMin = rect.anchorMax = anchor; rect.pivot = anchor; rect.anchoredPosition = position; rect.sizeDelta = size;
+            rect.anchorMin = rect.anchorMax = anchor;
+            rect.pivot = anchor;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
         }
     }
 }

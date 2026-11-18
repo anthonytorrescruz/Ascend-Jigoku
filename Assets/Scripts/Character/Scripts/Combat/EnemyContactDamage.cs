@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// Hurts the player on body contact (collision enter/stay). The hit is queued on CombatResolver so it resolves with
+// the rest of the frame's combat. Uses the EnemyDefinition's values when present, else the fields below.
 [DisallowMultipleComponent]
 public class EnemyContactDamage : MonoBehaviour
 {
@@ -9,19 +11,24 @@ public class EnemyContactDamage : MonoBehaviour
     private float suppressedUntil = float.NegativeInfinity;
     private PlayerHealth protectedPlayer;
     public CombatAttack Attack { get; private set; }
+
     private void Awake() => Attack = GetComponent<CombatAttack>();
+
     private void OnCollisionEnter2D(Collision2D collision) => CheckContact(collision.collider);
+
     private void OnCollisionStay2D(Collision2D collision) => CheckContact(collision.collider);
+
+    // Ignores attack hitboxes (those are handled by swings, not body contact).
     private void CheckContact(Collider2D other)
     {
-
         if (CombatAttack.IsHitbox(other)) return;
         var player = other.GetComponentInParent<PlayerHealth>();
         if (player != null) TryContact(player, Time.time);
     }
+
+    // Queues contact damage unless dead, stunned, on cooldown, or suppressed. Returns whether damage was queued.
     public bool TryContact(PlayerHealth player, float now)
     {
-        
         var health = GetComponent<EnemyHealth>();
         var combat = GetComponent<EnemyCombat>();
         var profile = combat != null ? combat.Definition : null;
@@ -32,6 +39,12 @@ public class EnemyContactDamage : MonoBehaviour
         CombatResolver.Instance.QueueContact(this, player, damage, now);
         return true;
     }
-    public void Suppress(PlayerHealth player, float until) { protectedPlayer = player; suppressedUntil = until; }
+    // Briefly blocks contact damage to one player, e.g. right after they pogo off this enemy.
+    public void Suppress(PlayerHealth player, float until)
+    {
+        protectedPlayer = player;
+        suppressedUntil = until;
+    }
+
     public bool IsSuppressed(PlayerHealth player, float now) => player == protectedPlayer && now <= suppressedUntil;
 }

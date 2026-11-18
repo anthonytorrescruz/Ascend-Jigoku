@@ -9,6 +9,7 @@ internal static class SpellShapes
 
     private static Sprite Build(bool arc)
     {
+        // Draws the shape into a resolution x resolution texture. The crescent is the strip between two curves; the circle is a disc.
         const int resolution = 128;
         var pixels = new Color32[resolution * resolution];
         for (int y = 0; y < resolution; y++)
@@ -33,8 +34,10 @@ internal static class SpellShapes
         var texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false) {
             name = name, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp
         };
-        texture.SetPixels32(pixels); texture.Apply(false, true);
-        var sprite = Sprite.Create(texture, new Rect(0, 0, resolution, resolution), Vector2.one * .5f, resolution, 0, SpriteMeshType.FullRect);
+        texture.SetPixels32(pixels);
+        texture.Apply(false, true);
+        var sprite = Sprite.Create(texture, new Rect(0, 0, resolution, resolution), Vector2.one * .5f, resolution, 0,
+            SpriteMeshType.FullRect);
         sprite.name = name;
         return sprite;
     }

@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+// Turns attack input into swings: buffers the press, picks direction (up/down/facing), and enforces recovery between attacks.
+// All times are Time.time seconds; the frame counts in CombatAttack.Settings and Weapon are converted at 60 FPS.
 [RequireComponent(typeof(PlayerController), typeof(CombatAttack), typeof(PlayerParry))]
 public class PlayerCombat : MonoBehaviour
 {
@@ -14,7 +16,9 @@ public class PlayerCombat : MonoBehaviour
     private PlayerWeapons weapons;
     private CombatAttack attack;
     private PlayerParry parry;
+    // Time.time when the current attack's recovery ends and a new one may start.
     private float nextAttackAt;
+    // A pressed attack stays queued until this Time.time and fires as soon as CanAct allows.
     private float bufferedUntil = float.NegativeInfinity;
     private CombatDirection bufferedDirection;
     public CombatAttack Attack => attack;
@@ -40,18 +44,29 @@ public class PlayerCombat : MonoBehaviour
         controls = new PlayerActions();
         AscendJigoku.Settings.KeybindSettings.Register(controls.asset); // apply saved keybinds
     }
-    private void OnEnable() { controls.Enable(); abilityInput.Enable(); swapInput.Enable(); }
+    private void OnEnable()
+    {
+        controls.Enable();
+        abilityInput.Enable();
+        swapInput.Enable();
+    }
+
     private void OnDisable()
     {
-        controls.Disable(); abilityInput.Disable(); swapInput.Disable();
+        controls.Disable();
+        abilityInput.Disable();
+        swapInput.Disable();
         Cancel();
     }
     private void OnDestroy()
     {
         AscendJigoku.Settings.KeybindSettings.ReleaseExtraAction("ability", abilityInput);
         AscendJigoku.Settings.KeybindSettings.ReleaseExtraAction("swap", swapInput);
-        abilityInput.Dispose(); swapInput.Dispose(); controls.Dispose();
+        abilityInput.Dispose();
+        swapInput.Dispose();
+        controls.Dispose();
     }
+
     private void Update()
     {
         if (swapInput.WasPressedThisFrame()) weapons.Swap();
@@ -62,12 +77,14 @@ public class PlayerCombat : MonoBehaviour
         }
         Tick(Time.time);
     }
+
     public void QueueAttack(CombatDirection direction)
     {
         GetComponent<PlayerSpell>()?.Cancel();
         bufferedDirection = direction;
         bufferedUntil = Time.time + Mathf.Max(0, attack.Settings.inputBufferSeconds);
     }
+
     public void Tick(float now)
     {
         if (now <= bufferedUntil && TryAttack(bufferedDirection, now))
@@ -79,6 +96,8 @@ public class PlayerCombat : MonoBehaviour
         && now >= nextAttackAt && !(attack.CurrentSwing != null && attack.CurrentSwing.IsActive(now))
         && parry.PhaseAt(now) == ParryPhase.Idle;
     public void HoldAttacks(float until) => nextAttackAt = Mathf.Max(nextAttackAt, until);
+
+    // Weapon extra startup/active/recovery frames add to the base player frame counts; recovery starts when the swing ends.
     private bool TryAttack(CombatDirection direction, float now)
     {
         if (!CanAct(now)) return false;
@@ -101,6 +120,7 @@ public class PlayerCombat : MonoBehaviour
             + weapon.ExtraRecoveryFrames / CombatAttack.ReferenceFramesPerSecond;
         return true;
     }
+
     private CombatDirection ReadDirection()
     {
         Vector2 movement = controls.PlayerInput.Move.ReadValue<Vector2>();
@@ -108,6 +128,7 @@ public class PlayerCombat : MonoBehaviour
             : movement.y > 0.5f ? CombatDirection.Up
             : playerController.IsFacingRight ? CombatDirection.Right : CombatDirection.Left;
     }
+
     public void Cancel()
     {
         bufferedUntil = float.NegativeInfinity;

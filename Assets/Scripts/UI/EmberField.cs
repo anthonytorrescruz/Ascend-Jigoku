@@ -10,7 +10,14 @@ namespace AscendJigoku.UI
     {
         [Min(0)] public int count = 42;
 
-        private struct Ember { public RectTransform Rect; public Image Image; public float X, Y, Speed, Phase, Size; }
+        // X and Y are 0-1 positions within the area; Speed is area heights per second; Phase offsets the side-to-side sway.
+        private struct Ember
+        {
+            public RectTransform Rect;
+            public Image Image;
+            public float X, Y, Speed, Phase, Size;
+        }
+
         private Ember[] embers;
         private RectTransform area;
 
@@ -29,7 +36,16 @@ namespace AscendJigoku.UI
                 rect.anchorMin = rect.anchorMax = Vector2.zero;
                 float size = i % 5 == 0 ? 6 : 4;
                 rect.sizeDelta = new Vector2(size, size);
-                embers[i] = new Ember { Rect = rect, Image = image, X = Random.value, Y = Random.value, Speed = Random.Range(0.025f, 0.08f), Phase = Random.value * 6.28f, Size = size };
+                embers[i] = new Ember
+                {
+                    Rect = rect,
+                    Image = image,
+                    X = Random.value,
+                    Y = Random.value,
+                    Speed = Random.Range(0.025f, 0.08f),
+                    Phase = Random.value * 6.28f,
+                    Size = size
+                };
             }
         }
 
@@ -43,11 +59,19 @@ namespace AscendJigoku.UI
             {
                 ref var e = ref embers[i];
                 if (!still) e.Y += e.Speed * dt;
-                if (e.Y > 1.05f) { e.Y = -0.05f; e.X = Random.value; }
+                // Past the top: wrap to the bottom at a new random column.
+                if (e.Y > 1.05f)
+                {
+                    e.Y = -0.05f;
+                    e.X = Random.value;
+                }
                 float sway = Mathf.Sin(Time.unscaledTime * 0.7f + e.Phase) * 10f;
                 // Snap to whole pixels so they read as pixel art.
                 e.Rect.anchoredPosition = new Vector2(Mathf.Round(e.X * size.x + sway), Mathf.Round(e.Y * size.y));
-                var c = e.Image.color; c.a = Mathf.Clamp01(1.1f - e.Y) * 0.85f; e.Image.color = c;
+                // Fade out as it rises.
+                var c = e.Image.color;
+                c.a = Mathf.Clamp01(1.1f - e.Y) * 0.85f;
+                e.Image.color = c;
             }
         }
     }

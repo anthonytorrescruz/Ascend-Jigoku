@@ -1,0 +1,91 @@
+HISTORICAL CONTROLLED EDITOR CHECKS - 2026-11-17
+Not acceptance validation for subsequent merges or the final release.
+
+GRIM DEATH PLAY MODE VERIFICATION
+PASS: Grim Death starts with 10 health
+PASS: Teammate audio component loads correctly on Flyer
+PASS: Teammate audio component loads correctly on Fodder
+PASS: Teammate audio component loads correctly on DemonHead
+PASS: Ordinary enemies retain normal multi-damage hits after health merge
+AUDIO CHECK bodyAlive=False, sharedPlaying=True
+PASS: Teammate enemy death sound continues after its body is destroyed
+PASS: All nine source animation sheets are assigned, including spirit appearance/death
+PASS: Battle music and all nine original sound effects are assigned
+PASS: Landing anywhere on the full-width arena starts its music and encounter
+PASS: Boss idles before the player approaches
+PASS: Approaching wakes the boss through its entrance beat
+PASS: Upgraded player hits are capped at one boss health per connecting hit
+PASS: Boss bar tracks actual health against a black missing-health track
+PASS: Two-cut scythe combo can start
+PASS: Scythe deals exactly one player health
+PASS: Second scythe cut is a distinct hit after the warning gap
+PASS: Dedicated parry can be timed against the scythe
+PASS: Successful L parry prevents damage and stuns Grim Death
+PASS: Dedicated parry begins without startup delay
+PASS: One timed parry deflects all simultaneous attacks without damage
+PASS: A success grants 24 frames / 0.4 seconds of protection
+PASS: A later attack arriving on another frame is also deflected
+PASS: Follow-up attacks cannot extend the protection indefinitely
+PASS: Body contact cannot damage or knock back the player during successful-parry protection
+PASS: Successful recovery ends after 6 frames, allowing a quick counterattack
+PASS: Protection expires and later attacks deal damage normally
+PASS: A fresh parry attempt can start after the previous protection ends
+PASS: A missed parry retains normal recovery and grants no invulnerability
+PASS: An attack during missed-parry recovery still connects
+PASS: Telegraphed reaping dash moves quickly across the arena
+PASS: Dash restores a solid, vulnerable body after its brief evasive window
+PASS: Shadow step advertises its destination before phasing
+PASS: Shadow step passes through a brief transit and restores vulnerability
+PASS: Shadow step uses the far side of the full arena and returns without overlapping the player
+PASS: Soul rain emits its full aimed arc volley from full boss health
+PASS: Shadow projectiles travel in gravity-driven arcs
+PASS: Full arena pillar row warns before any damage becomes active
+PASS: Pillars are equally spaced with usable dodge gaps
+PASS: Pillars rise beyond the player's full multi-jump height
+PASS: Pillars become dangerous only after their tell and deal one health
+PASS: Eclipse shows a true circular blast radius before activation
+PASS: Circular burst does not damage the empty corners of its bounding square
+PASS: Circular burst damages inside its actual radius
+PASS: Summon move creates its bounded group of spirits without a health threshold
+PASS: Summoned spirit plays its appearance animation
+PASS: Summoned spirit transitions into its idle/lunge animation
+PASS: Player can destroy a spirit and trigger its supplied death animation
+PASS: Downward attacks pogo shadow projectiles without spending a jump
+PASS: Repeated spells reuse a bounded hazard pool
+PASS: Lethal hit starts death animation and immediately clears attacks
+PASS: Death animation finishes before the final checkpoint route opens
+PASS: No gameplay errors in the direct boss fight: 
+PASS: Main game keeps Fire Worm first and Grim Death later before checkpoint two
+PASS: ProceduralPillar retains teammate jump audio and volume
+PASS: ProceduralPillar generator is explicitly connected to the final boss asset
+PASS: Defeating Fire Worm unlocks ascent only as far as Grim Death
+PASS: Production final encounter uses the whole platform and activates on landing
+PASS: Arena walls use the actual 76-unit platform edges rather than trapping the player at the centre
+PASS: Checkpoint ceiling seals the full arena width
+PASS: The interior of the boss platform has no solid pillar blocking horizontal travel
+PASS: Player physics can run right across the arena centre without becoming pinned
+PASS: Player physics can run left across the arena centre without becoming pinned
+PASS: Production boss summons have independent one-hit health pools
+PASS: A real grounded sword swing kills a summon and cancels its attack
+PASS: Sword-killed summon plays its death animation before despawning
+PASS: Killed summon despawns after the death animation
+PASS: A grounded ranged crescent kills a summon through the normal projectile hit query
+PASS: A real aerial down-strike kills a summon and gives the player a pogo bounce
+PASS: Second checkpoint cannot be built before Grim Death is defeated
+PASS: Streaming refresh preserves one boss and its health
+PASS: Production boss takes exactly one health from sword hit 1
+PASS: Production boss takes exactly one health from sword hit 2
+PASS: Production boss takes exactly one health from sword hit 3
+PASS: Production boss takes exactly one health from sword hit 4
+PASS: Production boss takes exactly one health from sword hit 5
+PASS: Production boss takes exactly one health from sword hit 6
+PASS: Production boss takes exactly one health from sword hit 7
+PASS: Production boss takes exactly one health from sword hit 8
+PASS: Production boss takes exactly one health from sword hit 9
+PASS: Production boss takes exactly one health from sword hit 10
+PASS: Ten real connecting sword swings defeat the 10 HP production boss
+PASS: Final boss victory clears the production route lock
+PASS: Both boss victories persist in the existing continue save format
+PASS: Second checkpoint becomes reachable after victory
+PASS: No gameplay errors during production route/save verification: 
+ALL CHECKS PASSED

@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace AscendJigoku.Gameplay
 {
+    // A merchant NPC. Registers itself in Actors so ShopMenu can find the nearest one; the catalog says what it sells.
     public sealed class Shopkeeper : MonoBehaviour
     {
         public string displayName = "Checkpoint Merchant";
@@ -10,9 +11,14 @@ namespace AscendJigoku.Gameplay
         [Min(0.5f)] public float interactionRadius = 2.5f;
         private static readonly List<Shopkeeper> actors = new List<Shopkeeper>();
         public static IReadOnlyList<Shopkeeper> Actors => actors;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetActors() => actors.Clear();
-        private void OnEnable() { if (!actors.Contains(this)) actors.Add(this); }
+
+        private void OnEnable()
+        {
+            if (!actors.Contains(this)) actors.Add(this);
+        }
         private void OnDisable() => actors.Remove(this);
     }
 }

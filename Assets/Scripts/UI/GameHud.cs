@@ -1,5 +1,6 @@
 using UnityEngine;
 
+// Scene bootstrap for the health bar: instantiates the HealthBarUI prefab at start and binds it to the player.
 [DisallowMultipleComponent]
 public class GameHud : MonoBehaviour
 {

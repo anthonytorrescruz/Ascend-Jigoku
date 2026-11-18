@@ -7,9 +7,12 @@ public enum CombatTeam { Player, Enemy }
 public enum CombatDirection { Left, Right, Up, Down }
 
 
+// Shared swing/hitbox component for the player and enemies. BeginAttack creates a Swing and registers it with
+// CombatResolver, which does the actual hit detection; this class owns the swing timing and the hitbox visual/collider.
 [DisallowMultipleComponent]
 public class CombatAttack : MonoBehaviour
 {
+    // Frame counts in settings and attack calls are converted to seconds at this rate.
     public const float ReferenceFramesPerSecond = 60f;
     [SerializeField] private CombatTeam team;
     [SerializeField] private bool showAttack = true;
@@ -36,11 +39,13 @@ public class CombatAttack : MonoBehaviour
     public float LastParryTime { get; private set; } = float.NegativeInfinity;
     public Swing CurrentSwing { get; private set; }
     public BoxCollider2D Hitbox => hitboxCollider;
+
     public static bool IsHitbox(Collider2D shape)
     {
         var owner = shape != null ? shape.GetComponentInParent<CombatAttack>() : null;
         return owner != null && shape == owner.hitboxCollider;
     }
+
     public bool IsAttacking => CurrentSwing != null && CurrentSwing.IsActive(Time.time);
     public PlayerController PlayerController { get; private set; }
     public EnemyContactDamage ContactDamage { get; private set; }
@@ -62,7 +67,10 @@ public class CombatAttack : MonoBehaviour
         public readonly HashSet<Component> TargetsHit = new HashSet<Component>();
         public bool IsActive(float now) => !Cancelled && Owner != null
             && Owner.isActiveAndEnabled && now >= StartedAt && now < EndsAt;
-        public void RefreshBox() { if (Owner != null) Box = Owner.GetBox(Offset, Size); }
+        public void RefreshBox()
+        {
+            if (Owner != null) Box = Owner.GetBox(Offset, Size);
+        }
     }
 
     private Transform hitboxTransform;
@@ -97,6 +105,8 @@ public class CombatAttack : MonoBehaviour
         hitbox.SetActive(false);
     }
 
+    // Starts a swing, or returns null if the previous one is still active. Only the player gets startup frames;
+    // enemies already have their own windup. Box is offset from the body center and sized in world units.
     public Swing BeginAttack(CombatDirection direction, Vector2 offset, Vector2 size,
         int damage, int activeFrames, LayerMask damageLayers, float now, int extraStartupFrames = 0)
     {
@@ -104,16 +114,19 @@ public class CombatAttack : MonoBehaviour
         telegraphing = false;
         float startsAt = now + (team == CombatTeam.Player ? Settings.playerStartupFrames + Mathf.Max(0, extraStartupFrames) : 0) / ReferenceFramesPerSecond;
         CurrentSwing = new Swing {
-            Owner = this, Direction = direction, Offset = offset,
+            Owner = this,
+            Direction = direction,
+            Offset = offset,
             Size = new Vector2(Mathf.Max(0.01f, size.x), Mathf.Max(0.01f, size.y)),
-            Damage = Mathf.Max(0, damage), DamageLayers = damageLayers,
-            StartedAt = startsAt, EndsAt = startsAt + Mathf.Max(1, activeFrames) / ReferenceFramesPerSecond
+            Damage = Mathf.Max(0, damage),
+            DamageLayers = damageLayers,
+            StartedAt = startsAt,
+            EndsAt = startsAt + Mathf.Max(1, activeFrames) / ReferenceFramesPerSecond
         };
         CurrentSwing.RefreshBox();
         CombatResolver.Instance.Register(CurrentSwing);
         UpdateDisplay(now);
         return CurrentSwing;
-        
     }
 
     public void SetTeam(CombatTeam value)
@@ -124,7 +137,10 @@ public class CombatAttack : MonoBehaviour
             hitboxTransform.gameObject.AddComponent<Pogoable>();
     }
 
-    public Rect GetBox(Vector2 offset, Vector2 size) => new Rect((Vector2)transform.position + offset - size * 0.5f, size);
+    public Rect GetBox(Vector2 offset, Vector2 size) =>
+        new Rect((Vector2)transform.position + offset - size * 0.5f, size);
+
+    // Offset that places a box of the given size just outside the body collider on the chosen side.
     public Vector2 GetAttackOffset(CombatDirection direction, Vector2 size)
     {
         if (bodyCollider == null) bodyCollider = GetComponent<Collider2D>();
@@ -141,6 +157,8 @@ public class CombatAttack : MonoBehaviour
         }
         return offset;
     }
+
+    // Shows the box as a warning (windup) without enabling its collider.
     public void ShowTelegraph(Vector2 offset, Vector2 size)
     {
         telegraphing = true;
@@ -148,7 +166,12 @@ public class CombatAttack : MonoBehaviour
         telegraphSize = size;
         UpdateDisplay(Time.time);
     }
-    public void CancelTelegraph() { telegraphing = false; UpdateDisplay(Time.time); }
+    public void CancelTelegraph()
+    {
+        telegraphing = false;
+        UpdateDisplay(Time.time);
+    }
+
     public void Parry(Swing swing, float now)
     {
         swing.Parried = true;
@@ -156,11 +179,13 @@ public class CombatAttack : MonoBehaviour
         LastParryTime = now;
         UpdateDisplay(now);
     }
+
     public void Cancel(Swing swing)
     {
         swing.Cancelled = true;
         UpdateDisplay(Time.time);
     }
+
     public void CancelAll()
     {
         if (CurrentSwing != null) CurrentSwing.Cancelled = true;
@@ -170,26 +195,36 @@ public class CombatAttack : MonoBehaviour
         Feedback?.CancelWindup();
         if (hitboxTransform != null) hitboxTransform.gameObject.SetActive(false);
     }
+
     private void LateUpdate() => UpdateDisplay(Time.time);
+
     private void OnDisable()
     {
         CancelAll();
     }
+
+    // Shows/hides and positions the hitbox object. The collider is only enabled during the active frames;
+    // telegraph and parry flash show the box visually without it being able to hit anything.
     private void UpdateDisplay(float now)
     {
         if (hitboxTransform == null) return;
         bool active = CurrentSwing != null && CurrentSwing.IsActive(now);
-        bool flash = now - LastParryTime < 0.08f;
+        bool flash = now - LastParryTime < 0.08f; // seconds the box flashes cyan after a parry
         bool visible = active || telegraphing || flash;
         if (hitboxTransform.gameObject.activeSelf != visible) hitboxTransform.gameObject.SetActive(visible);
         if (!visible) return;
         Rect box = telegraphing ? GetBox(telegraphOffset, telegraphSize) : CurrentSwing.Box;
-        if (active) { CurrentSwing.RefreshBox(); box = CurrentSwing.Box; }
+        if (active)
+        {
+            CurrentSwing.RefreshBox();
+            box = CurrentSwing.Box;
+        }
         hitboxTransform.position = new Vector3(box.center.x, box.center.y, transform.position.z);
         Vector3 scale = transform.lossyScale;
         hitboxTransform.localScale = new Vector3(box.width / Mathf.Max(0.001f, Mathf.Abs(scale.x)),
             box.height / Mathf.Max(0.001f, Mathf.Abs(scale.y)), 1f);
         hitboxCollider.enabled = active;
+        // Boxes are only drawn while the debug menu is open.
         hitboxRenderer.enabled = showAttack && AscendJigoku.Debugging.DebugMenu.IsOpen;
         hitboxRenderer.color = flash ? new Color(0, 1, 1, 0.65f)
             : telegraphing ? new Color(1, 0.75f, 0, 0.25f)

@@ -4,6 +4,8 @@ using UnityEngine;
 namespace AscendJigoku.Gameplay
 {
     public enum UpgradeKind { MaxHealth, Damage, ExtraJump }
+
+    // One item a shopkeeper sells. Price grows by priceMultiplier for each purchase already made.
     [Serializable]
     public sealed class ShopOffer
     {
@@ -16,6 +18,8 @@ namespace AscendJigoku.Gameplay
         [Min(1)] public int amount = 1;
         public int Price(int purchased) => Mathf.Clamp(Mathf.CeilToInt(basePrice * Mathf.Pow(priceMultiplier, purchased)), 0, 1000000);
     }
+
+    // Asset describing what a Shopkeeper sells (three offers) plus its greeting and sounds. ShopMenu shows these.
     [CreateAssetMenu(menuName = "Ascend Jigoku/Shop Catalog")]
     public sealed class ShopCatalog : ScriptableObject
     {

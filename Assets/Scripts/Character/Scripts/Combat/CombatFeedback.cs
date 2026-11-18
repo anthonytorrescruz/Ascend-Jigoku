@@ -2,6 +2,7 @@ using AscendJigoku.Gameplay;
 using AscendJigoku.Settings;
 using UnityEngine;
 
+// Per-character hit/parry/pogo feedback: sprite color flashes, windup tint, and short sounds.
 // Optional clips replace the small placeholder sounds. Set volume to zero to mute them.
 [DisallowMultipleComponent]
 public sealed class CombatFeedback : MonoBehaviour
@@ -45,30 +46,42 @@ public sealed class CombatFeedback : MonoBehaviour
         Play(parrySound, ref defaultParry, 550, 1100, 0.1f);
         EncounterFeedback.OnParry();
     }
+
     public void Pogo()
     {
         Flash(new Color(0.6f, 0.85f, 1), 0.08f);
         Play(pogoSound, ref defaultPogo, 250, 650, 0.08f);
         EncounterFeedback.OnPogo();
     }
+
+    // Tints the sprite toward orange over the windup; enemies (no PlayerHealth) also get a telegraph marker.
     public void Windup(float seconds)
     {
         windupStart = Time.time;
         windupUntil = Time.time + seconds;
         if (health == null) TelegraphMarker.Show(gameObject, seconds);
     }
-    public void CancelWindup() { windupUntil = 0; TelegraphMarker.Hide(gameObject); }
+    public void CancelWindup()
+    {
+        windupUntil = 0;
+        TelegraphMarker.Hide(gameObject);
+    }
+
     public void ResetFeedback()
     {
         flashUntil = windupUntil = 0;
         TelegraphMarker.Hide(gameObject);
         if (body != null) body.color = originalColor;
     }
+
     private void Flash(Color color, float seconds)
     {
         flashColor = color;
         flashUntil = Time.time + seconds;
     }
+
+    // Picks the sprite color by priority: hit flash, windup tint, i-frame pulse, active parry, normal.
+    // "Reduce flashing" replaces the strobing effects with steady partial tints.
     private void LateUpdate()
     {
         if (body == null) return;
@@ -85,6 +98,8 @@ public sealed class CombatFeedback : MonoBehaviour
             body.color = Color.Lerp(originalColor, Color.cyan, 0.65f);
         else body.color = originalColor;
     }
+
+    // Plays the assigned clip, or lazily synthesizes a short sine sweep (startHz to endHz) as the placeholder.
     private void Play(AudioClip clip, ref AudioClip fallback, float startHz, float endHz, float duration)
     {
         if (volume <= 0) return;
@@ -108,9 +123,11 @@ public sealed class CombatFeedback : MonoBehaviour
         }
         PlayClip(clip, volume);
     }
+
+    // Shared 2D audio source for all combat sounds, scaled by the SFX volume setting.
     public static void PlayClip(AudioClip clip, float clipVolume)
     {
-        if (clip == null || clipVolume <= 0) return;
+        if (VictoryFlow.IsPlaying || clip == null || clipVolume <= 0) return;
         if (audioSource == null)
         {
             var host = new GameObject("Combat Audio");
@@ -122,5 +139,6 @@ public sealed class CombatFeedback : MonoBehaviour
         float scaled = Mathf.Clamp01(clipVolume) * GameSettings.SfxVolume;
         if (scaled > 0) audioSource.PlayOneShot(clip, scaled);
     }
+
     private void OnDisable() => ResetFeedback();
 }

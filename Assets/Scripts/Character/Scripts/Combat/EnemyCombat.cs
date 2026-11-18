@@ -1,7 +1,9 @@
 using Unity.VisualScripting;
 using UnityEngine;
 
-
+// The enemy's attack logic: detects the player in range (with a short look-ahead), runs a telegraphed windup, then
+// fires a CombatAttack swing. Works from a EnemyDefinition when assigned, else from the serialized fallback fields.
+// EnemyBrain decides when attacking is allowed (CanAttack); EnemyMotor stuns/knocks it via Stun().
 [RequireComponent(typeof(EnemyHealth), typeof(Pogoable), typeof(CombatAttack))]
 [DisallowMultipleComponent]
 public class EnemyCombat : MonoBehaviour
@@ -31,6 +33,8 @@ public class EnemyCombat : MonoBehaviour
     private float stunnedUntil = float.NegativeInfinity;
     private CombatDirection direction;
     public EnemyDefinition Definition => definition;
+    // Call right after Instantiate, before Start, so the motor and brain read the new profile.
+    public void UseDefinition(EnemyDefinition profile) => definition = profile;
     public PlayerHealth Target => targetPlayer;
     public CombatAttack Attack => attack;
     public bool IsWindingUp => windingUp;
@@ -39,6 +43,8 @@ public class EnemyCombat : MonoBehaviour
     public bool IsStunned => Time.time < stunnedUntil;
     public float StunnedUntil => stunnedUntil;
     private EnemySounds sounds;
+
+    // Interrupts any windup or swing and delays the next attack until the stun ends.
     public void Stun(float now, float duration)
     {
         stunnedUntil = Mathf.Max(stunnedUntil, now + Mathf.Max(0, duration));
@@ -58,24 +64,34 @@ public class EnemyCombat : MonoBehaviour
         health = GetComponent<EnemyHealth>();
         sounds = GetComponent<EnemySounds>();
     }
+
     private void Start()
     {
         if (targetPlayer == null) targetPlayer = FindAnyObjectByType<PlayerHealth>();
         SetTarget(targetPlayer);
     }
+
     public void SetTarget(PlayerHealth player)
     {
-        
         targetPlayer = player;
         targetBody = player != null ? player.GetComponent<Rigidbody2D>() : null;
         targetCollider = player != null ? player.GetComponent<Collider2D>() : null;
         targetController = player != null ? player.GetComponent<PlayerController>() : null;
     }
+
     private void Update() => Tick(Time.time);
+
+    // Two phases. Idle: once cooldown and the detection interval allow, DetectPlayer picks a direction and starts
+    // a windup (telegraph box + sprite tint). Windup: when the timer ends, re-check sight and fire the swing, then
+    // set the next attack time after the swing plus recovery.
     public void Tick(float now)
     {
-        if (health.CurrentHealth <= 0 || targetPlayer == null || !targetPlayer.isActiveAndEnabled || targetPlayer.CurrentHealth <= 0)
-        { CancelIntent(); return; }
+        if (health.CurrentHealth <= 0 || targetPlayer == null || !targetPlayer.isActiveAndEnabled
+            || targetPlayer.CurrentHealth <= 0)
+        {
+            CancelIntent();
+            return;
+        }
         if (now < stunnedUntil || Time.timeScale <= 0) return;
         if (brain != null && brain.enabled && !brain.CanAttack) return;
         if (windingUp)
@@ -83,9 +99,16 @@ public class EnemyCombat : MonoBehaviour
             if (now < windupEndsAt) return;
             windingUp = false;
             attack.Feedback?.CancelWindup();
+            // Player ducked behind terrain during the windup: abort and retry shortly.
+            if (requireLineOfSight && !HasLineOfSight())
+            {
+                attack.CancelTelegraph();
+                nextAttackAt = now + 0.3f;
+                return;
+            }
             GetAttackGeometry(direction, out Vector2 offset, out Vector2 size);
             var swing = attack.BeginAttack(direction, offset, size, definition != null ? definition.damage : attackDamage,
-            definition != null ? definition.activeFrames : attack.Settings.enemyActiveFrames, playerLayers, now);
+                definition != null ? definition.activeFrames : attack.Settings.enemyActiveFrames, playerLayers, now);
             if (swing != null)
             {
                 nextAttackAt = swing.EndsAt + (definition != null ? definition.recoverySeconds : attack.Settings.enemyCooldownSeconds);
@@ -94,19 +117,25 @@ public class EnemyCombat : MonoBehaviour
             return;
         }
         if ((attack.CurrentSwing != null && attack.CurrentSwing.IsActive(now))
-            || now < nextAttackAt || now < nextDetectionAt) {
-                return;
-            }
+            || now < nextAttackAt || now < nextDetectionAt)
+        {
+            return;
+        }
         nextDetectionAt = now + detectionIntervalFrames / CombatAttack.ReferenceFramesPerSecond;
         if (!DetectPlayer(out direction)) return;
         GetAttackGeometry(direction, out Vector2 windupOffset, out Vector2 windupSize);
         windingUp = true;
-        windupEndsAt = now + (definition != null ? definition.windupFrames : attack.Settings.enemyWindupFrames) / CombatAttack.ReferenceFramesPerSecond;
+        windupEndsAt = now
+            + (definition != null ? definition.windupFrames : attack.Settings.enemyWindupFrames)
+            / CombatAttack.ReferenceFramesPerSecond;
         if (sprite != null && (direction == CombatDirection.Left || direction == CombatDirection.Right))
             sprite.flipX = direction == CombatDirection.Left;
         attack.Feedback?.Windup(windupEndsAt - now);
         attack.ShowTelegraph(windupOffset, windupSize);
     }
+
+    // Where the player will be in predictionFrames: current velocity (plus gravity when airborne), capped in distance,
+    // so the windup aims slightly ahead of a moving player.
     public Vector2 PredictPlayerPosition()
     {
         Vector2 position = targetPlayer.transform.position;
@@ -115,8 +144,14 @@ public class EnemyCombat : MonoBehaviour
         Vector2 displacement = targetBody.linearVelocity * time;
         if (targetController == null || !targetController.IsGrounded)
             displacement += 0.5f * Physics2D.gravity * targetBody.gravityScale * time * time;
-        return position + Vector2.ClampMagnitude(displacement, definition != null ? definition.maximumPredictionDistance : maximumPredictionDistance);
+        return position + Vector2.ClampMagnitude(
+            displacement, definition != null ? definition.maximumPredictionDistance : maximumPredictionDistance);
     }
+
+    // True if the player (now or predicted) is within the aggro radius, visible, and the attack box for the chosen
+    // direction would overlap the predicted player. Direction is Up/Down when the player is mostly above/below
+    // (beyond aboveThreshold), otherwise Left/Right. Down is only chosen if the definition allows it, and a player
+    // mostly below is otherwise ignored.
     public bool DetectPlayer(out CombatDirection attackDirection)
     {
         attackDirection = CombatDirection.Right;
@@ -126,10 +161,12 @@ public class EnemyCombat : MonoBehaviour
         Vector2 predicted = PredictPlayerPosition();
         float radius = definition != null ? definition.aggroRadius : detectionRadius;
         float radiusSquared = radius * radius;
-        if ((current - position).sqrMagnitude > radiusSquared && (predicted - position).sqrMagnitude > radiusSquared) return false;
+        if ((current - position).sqrMagnitude > radiusSquared && (predicted - position).sqrMagnitude > radiusSquared)
+            return false;
         if (requireLineOfSight && !HasLineOfSight()) return false;
         Vector2 delta = predicted - position;
-        if (delta.y < -aboveThreshold && -delta.y > Mathf.Abs(delta.x) && (definition == null || !definition.allowDownAttack)) return false;
+        if (delta.y < -aboveThreshold && -delta.y > Mathf.Abs(delta.x) && (definition == null || !definition.allowDownAttack))
+            return false;
         attackDirection = delta.y > aboveThreshold && delta.y > Mathf.Abs(delta.x) ? CombatDirection.Up
             : delta.y < -aboveThreshold && -delta.y > Mathf.Abs(delta.x) && definition != null && definition.allowDownAttack
             ? CombatDirection.Down : delta.x < 0 ? CombatDirection.Left : CombatDirection.Right;
@@ -138,6 +175,8 @@ public class EnemyCombat : MonoBehaviour
         Vector2 targetSize = targetCollider != null ? (Vector2)targetCollider.bounds.size : Vector2.one;
         return box.Overlaps(new Rect(predicted - targetSize * 0.5f, targetSize));
     }
+
+    // Box size (from the definition or settings) and its offset from the body center for a direction.
     public void GetAttackGeometry(CombatDirection attackDirection, out Vector2 offset, out Vector2 size)
     {
         var source = attack != null ? attack : GetComponent<CombatAttack>();
@@ -145,7 +184,11 @@ public class EnemyCombat : MonoBehaviour
         size = new Vector2(Mathf.Max(0.01f, size.x), Mathf.Max(0.01f, size.y));
         offset = source.GetAttackOffset(attackDirection, size);
     }
-    private readonly System.Collections.Generic.List<RaycastHit2D> sightHits = new System.Collections.Generic.List<RaycastHit2D>();
+
+    private readonly System.Collections.Generic.List<RaycastHit2D> sightHits =
+        new System.Collections.Generic.List<RaycastHit2D>();
+
+    // Straight line to the player is free of terrain (anything that is not this enemy or the player).
     public bool HasLineOfSight()
     {
         if (targetPlayer == null) return false;
@@ -157,18 +200,23 @@ public class EnemyCombat : MonoBehaviour
             if (!hit.transform.IsChildOf(transform) && !hit.transform.IsChildOf(targetPlayer.transform)) return false;
         return true;
     }
+
+    // Drops any windup/swing in progress (used on disengage, death, or disable).
     public void CancelIntent()
     {
         windingUp = false;
         attack?.CancelAll();
     }
+
     private void OnDisable() => CancelIntent();
+
     private void OnDrawGizmosSelected()
     {
         if (Application.isPlaying && !AscendJigoku.Debugging.DebugMenu.IsOpen) return;
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, definition != null ? definition.aggroRadius : detectionRadius);
-        foreach (var direction in new[] { CombatDirection.Left, CombatDirection.Right, CombatDirection.Up, CombatDirection.Down })
+        foreach (var direction in new[]
+            { CombatDirection.Left, CombatDirection.Right, CombatDirection.Up, CombatDirection.Down })
         {
             GetAttackGeometry(direction, out Vector2 offset, out Vector2 size);
             Gizmos.color = Color.red;

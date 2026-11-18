@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// Remembers the last checkpoint position and teleports the player there, clearing combat and movement state.
+// Checkpoints call SetRespawnPoint; the death flow calls Respawn.
 public class PlayerRespawn : MonoBehaviour
 {
     private Vector3 respawnPosition;

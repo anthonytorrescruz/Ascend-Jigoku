@@ -11,6 +11,7 @@ namespace AscendJigoku.UI
         private Text label;
         private float age = float.PositiveInfinity;
 
+        // Creates the toast object on first use; later calls reuse it and restart the fade (fade-in, hold, fade-out; seconds).
         public static void Show(string message)
         {
             if (string.IsNullOrEmpty(message)) return;
@@ -19,9 +20,11 @@ namespace AscendJigoku.UI
                 var go = new GameObject("Toast");
                 current = go.AddComponent<QolToast>();
                 var canvas = MenuStyle.CreateCanvas("Toast Canvas", 60, go.transform);
-                current.label = MenuStyle.Label(canvas, "Toast", "", new Vector2(0, 130), new Vector2(900, 44), 30, TextAnchor.MiddleCenter, MenuStyle.Ember);
+                current.label = MenuStyle.Label(
+                    canvas, "Toast", "", new Vector2(0, 130), new Vector2(900, 44), 30, TextAnchor.MiddleCenter, MenuStyle.Ember);
                 var shadow = current.label.gameObject.AddComponent<Shadow>();
-                shadow.effectColor = new Color(0, 0, 0, 0.8f); shadow.effectDistance = new Vector2(2, -2);
+                shadow.effectColor = new Color(0, 0, 0, 0.8f);
+                shadow.effectDistance = new Vector2(2, -2);
             }
             current.label.text = message;
             current.age = 0;
@@ -32,9 +35,14 @@ namespace AscendJigoku.UI
             if (label == null) return;
             age += Time.unscaledDeltaTime;
             float alpha = age < FadeIn ? age / FadeIn : age < FadeIn + Hold ? 1 : Mathf.Clamp01(1 - (age - FadeIn - Hold) / FadeOut);
-            var c = label.color; c.a = alpha; label.color = c;
+            var c = label.color;
+            c.a = alpha;
+            label.color = c;
         }
 
-        private void OnDestroy() { if (current == this) current = null; }
+        private void OnDestroy()
+        {
+            if (current == this) current = null;
+        }
     }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 
+// Sprites, sounds and music for the Fire Worm; read by FireWormPresentation, BossFireball and BossEncounterMusic.
 [CreateAssetMenu(menuName = "Ascend Jigoku/Fire Worm Presentation")]
 public sealed class FireWormPresentationSet : ScriptableObject
 {

@@ -4,6 +4,8 @@ using UnityEngine.SceneManagement;
 using AscendJigoku.UI;
 using System.Collections;
 
+// Player hit points, post-hit protection (invulnerability) and the death flow. Damage comes from enemies/hazards via TakeDamage*;
+// UI listens to the events.
 [DefaultExecutionOrder(50)] // after CombatFeedback, so the protection blink wins over its tint
 public class PlayerHealth : MonoBehaviour
 {
@@ -26,6 +28,7 @@ public class PlayerHealth : MonoBehaviour
     [Tooltip("Upper limit on the pause between dying and the death screen / retry.")]
     [Min(0), SerializeField] private float maxDeathDelaySeconds = 0.55f;
     private SpriteRenderer blinkSprite;
+    // Time.time until which normal damage is ignored (fall damage bypasses it).
     private float invulnerableUntil;
 
     private int currentHealth;
@@ -41,8 +44,11 @@ public class PlayerHealth : MonoBehaviour
     public bool IncreaseMaxHealth(int amount)
     {
         if (amount <= 0 || currentHealth <= 0 || maxHealth >= 99) return false;
-        int gained = Mathf.Min(amount, 99 - maxHealth); maxHealth += gained; currentHealth += gained;
-        HealthChanged?.Invoke(currentHealth, maxHealth); return true;
+        int gained = Mathf.Min(amount, 99 - maxHealth);
+        maxHealth += gained;
+        currentHealth += gained;
+        HealthChanged?.Invoke(currentHealth, maxHealth);
+        return true;
     }
 
     public bool Heal(int amount)
@@ -71,8 +77,12 @@ public class PlayerHealth : MonoBehaviour
     private void LateUpdate()
     {
         if (blinkSprite == null || currentHealth <= 0 || ProtectionRemaining <= 0) return;
-        float alpha = AscendJigoku.Settings.GameSettings.ReduceFlashing ? 0.6f : (Mathf.FloorToInt(Time.time * 12) % 2 == 0 ? 1f : 0.35f);
-        var c = blinkSprite.color; c.a = alpha; blinkSprite.color = c;
+        float alpha = AscendJigoku.Settings.GameSettings.ReduceFlashing
+            ? 0.6f
+            : (Mathf.FloorToInt(Time.time * 12) % 2 == 0 ? 1f : 0.35f);
+        var color = blinkSprite.color;
+        color.a = alpha;
+        blinkSprite.color = color;
     }
 
     private void Start()
@@ -83,9 +93,11 @@ public class PlayerHealth : MonoBehaviour
     public bool TakeDamage(int amount) => ApplyDamage(amount, false);
     public bool TakeFallDamage(int amount) => ApplyDamage(amount, true);
     public void ProtectFor(float seconds) => invulnerableUntil = Mathf.Max(invulnerableUntil, Time.time + Mathf.Max(0, seconds));
+
     private bool ApplyDamage(int amount, bool ignoreProtection)
     {
-        if (amount <= 0 || currentHealth <= 0 || (!ignoreProtection && Time.time < invulnerableUntil))
+        if (AscendJigoku.Gameplay.CheckpointSanctuary.Protects(this) || amount <= 0 || currentHealth <= 0
+            || (!ignoreProtection && Time.time < invulnerableUntil))
             return false;
 
         invulnerableUntil = Time.time + damageCooldownSeconds;
@@ -136,21 +148,25 @@ public class PlayerHealth : MonoBehaviour
         StartCoroutine(FinishDeath(deathHandler));
     }
 
+    // After the death animation: a scene's PlayerDeathHandler takes over if present, otherwise show the death screen or reload the scene.
     private IEnumerator FinishDeath(PlayerDeathHandler deathHandler)
-{
-    yield return new WaitForSecondsRealtime(Mathf.Min(deathAnimationSeconds, maxDeathDelaySeconds));
-
-    if (deathHandler != null) { deathHandler.OnPlayerDied(); yield break; }
-    if (ShouldShowDeathScreen && !AscendJigoku.Settings.GameSettings.InstantRespawn)
     {
-        if (playerController != null) playerController.enabled = false;
-        var combat = GetComponent<PlayerCombat>();
-        if (combat != null) combat.enabled = false;
-        var parry = GetComponent<PlayerParry>();
-        if (parry != null) parry.enabled = false;
-        DeathScreen.Show(gameObject.scene);
-    }
-    else SceneManager.LoadScene(gameObject.scene.name);
-}
+        yield return new WaitForSecondsRealtime(Mathf.Min(deathAnimationSeconds, maxDeathDelaySeconds));
 
+        if (deathHandler != null)
+        {
+            deathHandler.OnPlayerDied();
+            yield break;
+        }
+        if (ShouldShowDeathScreen && !AscendJigoku.Settings.GameSettings.InstantRespawn)
+        {
+            if (playerController != null) playerController.enabled = false;
+            var combat = GetComponent<PlayerCombat>();
+            if (combat != null) combat.enabled = false;
+            var parry = GetComponent<PlayerParry>();
+            if (parry != null) parry.enabled = false;
+            DeathScreen.Show(gameObject.scene);
+        }
+        else SceneManager.LoadScene(gameObject.scene.name);
+    }
 }

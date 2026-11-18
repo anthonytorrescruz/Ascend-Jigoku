@@ -36,7 +36,11 @@ namespace AscendJigoku.Gameplay
                 go.transform.SetParent(transform, false);
                 marker = go.GetComponent<SpriteRenderer>();
                 marker.sprite = ProceduralSprites.Exclamation;
-                if (body != null) { marker.sortingLayerID = body.sortingLayerID; marker.sortingOrder = body.sortingOrder + 5; }
+                if (body != null)
+                {
+                    marker.sortingLayerID = body.sortingLayerID;
+                    marker.sortingOrder = body.sortingOrder + 5;
+                }
             }
             startsAt = Time.time;
             endsAt = Time.time + seconds;
@@ -64,6 +68,10 @@ namespace AscendJigoku.Gameplay
 
         private static float SafeAbs(float value) => Mathf.Max(0.0001f, Mathf.Abs(value));
 
-        private void OnDisable() { endsAt = 0; if (marker != null) marker.enabled = false; }
+        private void OnDisable()
+        {
+            endsAt = 0;
+            if (marker != null) marker.enabled = false;
+        }
     }
 }

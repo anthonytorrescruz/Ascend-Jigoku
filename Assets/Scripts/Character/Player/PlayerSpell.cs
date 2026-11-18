@@ -4,6 +4,8 @@ using UnityEngine.InputSystem;
 
 [DefaultExecutionOrder(-150)]
 [DisallowMultipleComponent]
+// One button, two results: tap and release fires a spell projectile, holding for healHoldSeconds heals instead.
+// Other actions (jump, dash, attack, parry), knockback and damage cancel the hold. Times are Time.time seconds.
 [RequireComponent(typeof(PlayerController), typeof(PlayerHealth), typeof(PlayerCombat))]
 public sealed class PlayerSpell : MonoBehaviour
 {
@@ -38,7 +40,9 @@ public sealed class PlayerSpell : MonoBehaviour
     private SpriteRenderer focusVisual;
     private Transform projectileRoot;
     private bool holding;
+    // Time.time of the press; earliest time the next cast/heal may begin; when the heal flash visual ends.
     private float pressedAt, nextUseAt, healFlashUntil;
+    // Projectiles are pooled: pool holds the idle ones, projectiles lists every one created.
     private readonly Stack<PlayerProjectile> pool = new Stack<PlayerProjectile>();
     private readonly List<PlayerProjectile> projectiles = new List<PlayerProjectile>();
     public bool IsHolding => holding;
@@ -49,8 +53,11 @@ public sealed class PlayerSpell : MonoBehaviour
     public int HealsCompleted { get; private set; }
     private void Awake()
     {
-        controller = GetComponent<PlayerController>(); health = GetComponent<PlayerHealth>();
-        combat = GetComponent<PlayerCombat>(); parry = GetComponent<PlayerParry>(); body = GetComponent<Collider2D>();
+        controller = GetComponent<PlayerController>();
+        health = GetComponent<PlayerHealth>();
+        combat = GetComponent<PlayerCombat>();
+        parry = GetComponent<PlayerParry>();
+        body = GetComponent<Collider2D>();
         controls = new PlayerActions();
         AscendJigoku.Settings.KeybindSettings.Register(controls.asset); // apply saved keybinds
         castInput = controls.asset.FindAction("PlayerInput/CastOrHeal", true);
@@ -58,34 +65,54 @@ public sealed class PlayerSpell : MonoBehaviour
         focusVisual.transform.SetParent(transform, false);
         focusVisual.sprite = SpellShapes.Circle;
         var renderer = GetComponentInChildren<SpriteRenderer>();
-        if (renderer != null) { focusVisual.sortingLayerID = renderer.sortingLayerID; focusVisual.sortingOrder = renderer.sortingOrder + 3; }
+        if (renderer != null)
+        {
+            focusVisual.sortingLayerID = renderer.sortingLayerID;
+            focusVisual.sortingOrder = renderer.sortingOrder + 3;
+        }
         focusVisual.gameObject.SetActive(false);
     }
     private void OnEnable()
     {
-        controls.Enable(); health.Damaged += OnDamaged;
+        controls.Enable();
+        health.Damaged += OnDamaged;
         InputSystem.onDeviceChange += OnDeviceChange;
     }
     private void OnDisable()
     {
         InputSystem.onDeviceChange -= OnDeviceChange;
-        controls.Disable(); health.Damaged -= OnDamaged; Cancel(true);
+        controls.Disable();
+        health.Damaged -= OnDamaged;
+        Cancel(true);
     }
+
+    // Drop the hold if the device that started it goes away.
     private void OnDeviceChange(InputDevice device, InputDeviceChange change)
     {
         if (holding && device == holdDevice && (change == InputDeviceChange.Disconnected
             || change == InputDeviceChange.Removed || change == InputDeviceChange.Disabled)) Cancel();
     }
+
     private void OnDestroy()
     {
         controls.Dispose();
         if (projectileRoot != null) Destroy(projectileRoot.gameObject);
     }
-    private void OnApplicationFocus(bool focused) { if (!focused) Cancel(); }
+
+    private void OnApplicationFocus(bool focused)
+    {
+        if (!focused) Cancel();
+    }
+
     private void OnDamaged(int amount) => Cancel();
+
     private void Update()
     {
-        if (Time.timeScale <= 0 || !controller.isActiveAndEnabled || health.CurrentHealth <= 0) { Cancel(); return; }
+        if (Time.timeScale <= 0 || !controller.isActiveAndEnabled || health.CurrentHealth <= 0)
+        {
+            Cancel();
+            return;
+        }
         if (castInput.WasPressedThisFrame()) TryBegin(Time.time);
         if (holding && (controller.IsKnockedBack || controls.PlayerInput.Jump.WasPressedThisFrame()
             || controls.PlayerInput.Dash.WasPressedThisFrame() || controls.PlayerInput.Attack.WasPressedThisFrame()
@@ -93,33 +120,47 @@ public sealed class PlayerSpell : MonoBehaviour
         Tick(Time.time);
         if (castInput.WasReleasedThisFrame()) Release(Time.time);
     }
+
+    // Starts the hold unless the player is busy attacking, parrying, knocked back or still on cooldown.
     public bool TryBegin(float now)
     {
         if (!isActiveAndEnabled || holding || Time.timeScale <= 0 || health.CurrentHealth <= 0
             || !controller.isActiveAndEnabled || controller.IsKnockedBack || now < nextUseAt
             || combat.Attack.IsAttacking || combat.RecoveryRemaining > 0 || (parry != null && parry.IsBusy)) return false;
-        holding = true; pressedAt = now; holdDevice = castInput.activeControl?.device;
+        holding = true;
+        pressedAt = now;
+        holdDevice = castInput.activeControl?.device;
         return true;
     }
+
+    // Fires the heal once the hold reaches healHoldSeconds (at least 0.1s).
     public void Tick(float now)
     {
         if (holding && (Time.timeScale <= 0 || health.CurrentHealth <= 0 || !controller.isActiveAndEnabled || controller.IsKnockedBack))
-        { Cancel(); return; }
+        {
+            Cancel();
+            return;
+        }
         if (!holding || now - pressedAt < Mathf.Max(0.1f, healHoldSeconds)) return;
         // One result per press. Remaining held never repeatedly heals or emits a shot.
-        holding = false; holdDevice = null; nextUseAt = now + Mathf.Max(0, cooldownSeconds);
+        holding = false;
+        holdDevice = null;
+        nextUseAt = now + Mathf.Max(0, cooldownSeconds);
         if (health.Heal(Mathf.Max(1, healAmount)))
         {
             HealsCompleted++;
             healFlashUntil = Time.time + healFlashSeconds;
         }
     }
+
+    // Releasing before the heal threshold fires a projectile from the pool (or a new one, up to maxProjectiles).
     public bool Release(float now)
     {
         if (!holding) return false;
         Tick(now); // Releasing exactly at the threshold is still a heal.
         if (!holding) return false;
-        holding = false; holdDevice = null;
+        holding = false;
+        holdDevice = null;
         if (health.CurrentHealth <= 0 || !controller.isActiveAndEnabled) return false;
         nextUseAt = now + Mathf.Max(0, cooldownSeconds);
         if (pool.Count == 0 && projectiles.Count >= Mathf.Max(1, maxProjectiles)) return false;
@@ -130,7 +171,8 @@ public sealed class PlayerSpell : MonoBehaviour
         {
             shot = new GameObject("Player Spell Projectile").AddComponent<PlayerProjectile>();
             shot.transform.SetParent(projectileRoot, false);
-            shot.Configure(Recycle); projectiles.Add(shot);
+            shot.Configure(Recycle);
+            projectiles.Add(shot);
         }
         Vector2 direction = controller.IsFacingRight ? Vector2.right : Vector2.left;
         Bounds bounds = body != null ? body.bounds : new Bounds(transform.position, Vector3.one);
@@ -149,18 +191,24 @@ public sealed class PlayerSpell : MonoBehaviour
         return true;
     }
     private void Recycle(PlayerProjectile shot) => pool.Push(shot);
+
+    // Aborts a hold. clearProjectiles also despawns live shots and resets the cooldown (respawn/death).
     public void Cancel(bool clearProjectiles = false)
     {
-        holding = false; holdDevice = null;
+        holding = false;
+        holdDevice = null;
         healFlashUntil = 0;
         if (focusVisual != null) focusVisual.gameObject.SetActive(false);
         if (clearProjectiles)
         {
             healFlashUntil = 0;
             nextUseAt = 0;
-            foreach (var shot in projectiles) if (shot != null && shot.gameObject.activeSelf) shot.Despawn();
+            foreach (var shot in projectiles)
+                if (shot != null && shot.gameObject.activeSelf) shot.Despawn();
         }
     }
+
+    // Grows the focus circle over the hold (after the grace delay), or flashes it fading out after a heal.
     private void LateUpdate()
     {
         bool healed = Time.time < healFlashUntil;

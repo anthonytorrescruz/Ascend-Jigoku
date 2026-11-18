@@ -1,5 +1,6 @@
 using UnityEngine;
 
+// Data asset for the Fire Worm arena: boss prefab, arena width and height, and the barrier look. Read by BossFightGate.
 [CreateAssetMenu(menuName = "Ascend Jigoku/Required Boss Encounter")]
 public sealed class BossEncounterSettings : ScriptableObject
 {

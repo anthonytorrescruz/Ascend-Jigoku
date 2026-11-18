@@ -5,9 +5,11 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class PlayerWeapons : MonoBehaviour
 {
-    private const float FlashCutDistance = 4.5f;
+    private const float FlashCutDistance = 4.5f; // world units
+    // Bitmask of owned weapons (bit = WeaponId); the katana is always owned.
     private int owned = 1 << (int)WeaponId.Katana;
     private WeaponId equipped = WeaponId.Katana;
+    // Time.time at which each weapon's ability is ready again, indexed by WeaponId.
     private readonly float[] readyAt = new float[2];
     private PlayerCombat combat;
     private CombatAttack attack;
@@ -23,7 +25,9 @@ public sealed class PlayerWeapons : MonoBehaviour
 
     private void Awake()
     {
-        combat = GetComponent<PlayerCombat>(); attack = GetComponent<CombatAttack>(); controller = GetComponent<PlayerController>();
+        combat = GetComponent<PlayerCombat>();
+        attack = GetComponent<CombatAttack>();
+        controller = GetComponent<PlayerController>();
     }
 
     public void Unlock(WeaponId id, bool equip)
@@ -61,7 +65,7 @@ public sealed class PlayerWeapons : MonoBehaviour
         return true;
     }
 
-    // Dash through terrain-free space and cut everything along the path.
+    // Dash through terrain-free space and cut everything along the path. The swing box spans the whole path (8 active frames at 60 FPS).
     private bool FlashCut(Weapon weapon, float now)
     {
         var body = GetComponent<Collider2D>();
@@ -76,9 +80,11 @@ public sealed class PlayerWeapons : MonoBehaviour
 
         Vector2 start = rb.position;
         Vector2 end = start + new Vector2(sign * distance, 0);
-        rb.position = end; transform.position = new Vector3(end.x, end.y, transform.position.z);
+        rb.position = end;
+        transform.position = new Vector3(end.x, end.y, transform.position.z);
         rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
 
+        // Hitbox extends 0.7 behind the start and 1.5 past the end of the dash (relative to the player's start).
         float left = -distance - 0.7f, right = 1.5f;
         Vector2 offset = new Vector2(sign * (left + right) * 0.5f, body.bounds.center.y - transform.position.y);
         var swing = attack.BeginAttack(sign > 0 ? CombatDirection.Right : CombatDirection.Left, offset,
@@ -87,7 +93,8 @@ public sealed class PlayerWeapons : MonoBehaviour
         controller.PlayAttackAnimation();
         combat.HoldAttacks(swing.EndsAt + 0.12f);
         Vector2 mid = (start + end) * 0.5f + Vector2.up * (body.bounds.center.y - start.y);
-        WeaponFx.Burst(mid, new Vector2(distance + 1f, 0.5f), new Vector2(distance + 1.6f, 0.05f), new Color(0.95f, 0.89f, 0.8f, 0.9f), 0.2f, 20);
+        WeaponFx.Burst(mid, new Vector2(distance + 1f, 0.5f), new Vector2(distance + 1.6f, 0.05f),
+            new Color(0.95f, 0.89f, 0.8f, 0.9f), 0.2f, 20);
         return true;
     }
 

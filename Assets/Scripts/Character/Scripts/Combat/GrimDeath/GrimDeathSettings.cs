@@ -1,11 +1,12 @@
 using UnityEngine;
 
+// Tuning, sprites and audio for the Grim Death boss, shared by GrimDeathBoss, GrimDeathEncounter and its spells.
 [CreateAssetMenu(menuName = "Ascend Jigoku/Grim Death Boss")]
 public sealed class GrimDeathSettings : ScriptableObject
 {
     [Header("Encounter")]
     public string bossName = "GRIM DEATH";
-    [Min(1)] public int health = 25;
+    [Min(1)] public int health = 10;
     [Min(0)] public int checkpointMarkerIndex = 1;
     [Min(3)] public int rowsBeforeCheckpoint = 3;
     [Min(10)] public float ceilingHeight = 18;
@@ -19,7 +20,7 @@ public sealed class GrimDeathSettings : ScriptableObject
     [Min(0)] public float stepFadeSeconds = .18f;
     [Min(0)] public float stepRecovery = .28f;
     [Min(1)] public float stepBehindDistance = 3.4f;
-    [Min(0)] public float recoverySeconds = .65f;
+    [Min(0)] public float recoverySeconds = .9f;
     [Min(0)] public float parryStunSeconds = .8f;
     [Header("Scythe Combo - Frames at 60 FPS")]
     [Min(1)] public int scytheWindupFrames = 27;
@@ -57,11 +58,11 @@ public sealed class GrimDeathSettings : ScriptableObject
     public Sprite[] idle, idle2, scythe, skill, summon, death, spiritAppear, spiritIdle, spiritDeath;
     [Min(1)] public float framesPerSecond = 10;
     public Color shadowColor = new Color(.52f, .26f, .9f, 1);
-    public Color warningColor = new Color(.82f, .64f, 1, .8f);
+    public Color warningColor = new Color(1, .74f, .32f, .9f);
     [Header("Audio")]
     public AudioClip music, scytheSound, stepSound, castSound, spiritSound, spiritDeathSound, hitSound, deathSound, pillarSound, burstSound;
     [Range(0, 1)] public float musicVolume = .32f;
-    [Range(0, 1)] public float effectsVolume = .65f;
+    [Range(0, 1)] public float effectsVolume = .55f;
     public GameObject bossPrefab;
     public GameObject spiritPrefab;
 }

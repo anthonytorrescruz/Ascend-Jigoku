@@ -11,6 +11,7 @@ namespace AscendJigoku.UI
     //   lower-right  ability slots for dash, parry, cast and the equipped weapon's ability, with key labels and cooldowns;
     //                the equipped weapon is named under the row
     //   top-center   boss bar, shown by encounters through ShowBoss / HideBoss
+    //   top-right    coin count from the player's CurrencyWallet (hidden if there is none)
     // Installed automatically in any scene with a PlayerHealth, except AnthonyScene (it has its own test UI).
     // Replaces the old segment health bar (GameHud / HealthBarUI) where a scene still has one.
     public sealed class GameplayHud : MonoBehaviour
@@ -24,18 +25,28 @@ namespace AscendJigoku.UI
         private static int bossHealth, bossMax = 1, bossPhase;
         private static float[] bossPhaseMarks;
 
+        // Call every frame (or on every change) while the fight is on; HideBoss removes the bar.
         // phaseMarks: health fractions where a new phase starts (e.g. 0.67, 0.34), or null for a single-phase boss.
         public static void ShowBoss(Object owner, string name, int health, int maxHealth, int phase, float[] phaseMarks, string tell)
         {
-            bossOwner = owner; bossName = name; bossTell = tell;
-            bossHealth = Mathf.Max(0, health); bossMax = Mathf.Max(1, maxHealth); bossPhase = phase; bossPhaseMarks = phaseMarks;
+            bossOwner = owner;
+            bossName = name;
+            bossTell = tell;
+            bossHealth = Mathf.Max(0, health);
+            bossMax = Mathf.Max(1, maxHealth);
+            bossPhase = phase;
+            bossPhaseMarks = phaseMarks;
         }
 
         private static string notice;
         private static float noticeAt;
 
         // One-line pickup message; "{swap}" becomes the swap-weapon key.
-        public static void Announce(string message) { notice = message; noticeAt = Time.unscaledTime; }
+        public static void Announce(string message)
+        {
+            notice = message;
+            noticeAt = Time.unscaledTime;
+        }
 
         public static void HideBoss(Object owner)
         {
@@ -54,13 +65,16 @@ namespace AscendJigoku.UI
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => AttachTo(scene);
 
+        // Adds the HUD to scenes that have a player, and switches off any old scene-authored health bar.
         private static void AttachTo(Scene scene)
         {
             bossOwner = null;
-            if (!scene.IsValid() || FindAnyObjectByType<GameplayHud>() != null || FindAnyObjectByType<AnthonySession>() != null) return;
+            if (!scene.IsValid() || FindAnyObjectByType<GameplayHud>() != null || FindAnyObjectByType<AnthonySession>() != null)
+                return;
             var health = FindAnyObjectByType<PlayerHealth>();
             if (health == null || health.gameObject.scene != scene) return;
-            foreach (var old in FindObjectsByType<GameHud>()) old.gameObject.SetActive(false); // before it spawns its bar
+            // Old HUD objects are switched off before GameHud's Start can spawn its bar.
+            foreach (var old in FindObjectsByType<GameHud>()) old.gameObject.SetActive(false);
             foreach (var old in FindObjectsByType<HealthBarUI>()) old.gameObject.SetActive(false);
             var go = new GameObject("Gameplay HUD");
             SceneManager.MoveGameObjectToScene(go, scene);
@@ -69,12 +83,24 @@ namespace AscendJigoku.UI
 
         // ---------- State ----------
 
-        private sealed class Pip { public RectTransform Root; public Image Frame, Core; public float FlashUntil; }
+        // One health diamond.
+        private sealed class Pip
+        {
+            public RectTransform Root;
+            public Image Frame, Core;
+            public float FlashUntil;
+        }
+
+        // One ability square. Action is the input action name used to look up the key label; Cover is the cooldown
+        // overlay and Charge the fill used by the cast/heal slot. Peak is the longest recovery seen (for the parry fraction).
         private sealed class Slot
         {
             public string Action;
-            public RectTransform Root; public Image Frame, Cover, Charge; public Text Name, Key;
-            public bool WasReady = true; public float FlashUntil, CooldownStart, Peak;
+            public RectTransform Root;
+            public Image Frame, Cover, Charge;
+            public Text Name, Key;
+            public bool WasReady = true;
+            public float FlashUntil, CooldownStart, Peak;
         }
 
         private PlayerHealth player;
@@ -96,11 +122,21 @@ namespace AscendJigoku.UI
         private Text bossNameText, bossTellText;
         private RectTransform[] bossTicks = new RectTransform[0];
         private float chip = 1, shakeUntil;
+        private CurrencyWallet wallet;
+        private RectTransform coinRow;
+        private Text coinText;
+        private int shownCoins = -1;
+        private float coinPopUntil;
 
+        // Looks up the player's components (any may be missing, e.g. in the tutorial) and builds the canvas once.
         private void Start()
         {
             if (player == null) player = FindAnyObjectByType<PlayerHealth>();
-            if (player == null) { Destroy(gameObject); return; }
+            if (player == null)
+            {
+                Destroy(gameObject);
+                return;
+            }
             controller = player.GetComponent<PlayerController>();
             parry = player.GetComponent<PlayerParry>();
             spell = player.GetComponent<PlayerSpell>();
@@ -111,10 +147,12 @@ namespace AscendJigoku.UI
             canvas = MenuStyle.CreateCanvas("HUD Canvas", 5, transform);
             Destroy(canvas.GetComponent<GraphicRaycaster>()); // display only, never eats clicks
             group = canvas.gameObject.AddComponent<CanvasGroup>();
-            group.interactable = false; group.blocksRaycasts = false;
+            group.interactable = false;
+            group.blocksRaycasts = false;
             BuildHealth();
             BuildAbilities();
             BuildBossBar();
+            BuildCoins();
             player.Damaged += OnDamaged;
         }
 
@@ -123,6 +161,7 @@ namespace AscendJigoku.UI
             if (player != null) player.Damaged -= OnDamaged;
         }
 
+        // Shakes the health row and flashes the pips that were just lost.
         private void OnDamaged(int amount)
         {
             shakeUntil = Time.unscaledTime + 0.25f;
@@ -140,15 +179,18 @@ namespace AscendJigoku.UI
             UpdateHealth();
             UpdateAbilities();
             UpdateBossBar();
+            UpdateCoins();
         }
 
         // ---------- Health ----------
 
         private void BuildHealth()
         {
-            healthRow = Corner("Health", new Vector2(0, 0), new Vector2(Margin, Margin), new Vector2(560, 64)); // centred on the ability slots
+            // Height matches the ability slots so the two rows line up.
+            healthRow = Corner("Health", new Vector2(0, 0), new Vector2(Margin, Margin), new Vector2(560, 64));
         }
 
+        // Pips are rebuilt whenever max health changes (upgrades, new run).
         private void RebuildPips(int max)
         {
             foreach (var pip in pips) Destroy(pip.Root.gameObject);
@@ -179,13 +221,19 @@ namespace AscendJigoku.UI
                 Color core;
                 if (now < pip.FlashUntil && !GameSettings.ReduceFlashing) core = MenuStyle.TextColor;
                 else if (full) core = MenuStyle.Ember;
-                else if (i == hp && charge > 0) { core = MenuStyle.TextColor; scale = charge; } // healing into this pip
+                else if (i == hp && charge > 0)
+                {
+                    // The next pip grows while the player holds to heal.
+                    core = MenuStyle.TextColor;
+                    scale = charge;
+                }
                 else core = MenuStyle.Background;
                 if (full && low && !GameSettings.ReduceFlashing) scale = 0.85f + 0.15f * Mathf.Sin(now * 6);
                 pip.Core.color = core;
                 pip.Core.rectTransform.localScale = new Vector3(scale, scale, 1);
                 pip.Frame.color = full ? MenuStyle.Ember * 0.75f : MenuStyle.DimText;
             }
+            // Row jitters for 0.25s after a hit, scaled by the screen shake setting.
             float shake = now < shakeUntil ? 6 * GameSettings.ScreenShake * ((shakeUntil - now) / 0.25f) : 0;
             healthRow.anchoredPosition = new Vector2(Margin + Random.Range(-shake, shake), Margin + Random.Range(-shake, shake));
         }
@@ -203,14 +251,20 @@ namespace AscendJigoku.UI
             if (spell == null) cast.Root.gameObject.SetActive(false);
             ability = BuildSlot(row, "ABILITY", "Ability", 3);
             if (weapons == null) ability.Root.gameObject.SetActive(false);
-            weaponText = MenuStyle.Label(row, "Weapon", "", new Vector2(-SlotStep * 2 + SlotSize * 0.5f - 1, -22), new Vector2(SlotStep * 4, 22), 14, TextAnchor.MiddleRight, MenuStyle.MutedText);
+            weaponText = MenuStyle.Label(
+                row, "Weapon", "", new Vector2(-SlotStep * 2 + SlotSize * 0.5f - 1, -22), new Vector2(SlotStep * 4, 22), 14,
+                TextAnchor.MiddleRight, MenuStyle.MutedText);
             weaponText.rectTransform.anchorMin = weaponText.rectTransform.anchorMax = weaponText.rectTransform.pivot = new Vector2(1, 0);
             weaponText.rectTransform.anchoredPosition = new Vector2(0, -22);
-            noticeText = MenuStyle.Label(canvas, "Notice", "", new Vector2(0, 150), new Vector2(1200, 30), 20, TextAnchor.MiddleCenter, MenuStyle.Ember);
+            noticeText = MenuStyle.Label(
+                canvas, "Notice", "", new Vector2(0, 150), new Vector2(1200, 30), 20, TextAnchor.MiddleCenter, MenuStyle.Ember);
             noticeText.rectTransform.anchorMin = noticeText.rectTransform.anchorMax = new Vector2(0.5f, 0);
-            noticeGroup = noticeText.gameObject.AddComponent<CanvasGroup>(); noticeGroup.alpha = 0;
+            noticeGroup = noticeText.gameObject.AddComponent<CanvasGroup>();
+            noticeGroup.alpha = 0;
         }
 
+        // Square with a bright border, a dark inside, a rising Charge fill, a Cooldown cover that shrinks as it recharges,
+        // the ability name inside and the key label above. Slots are laid out left to right by index.
         private Slot BuildSlot(RectTransform row, string name, string action, int index)
         {
             var root = Box(row, name, new Vector2(SlotSize, SlotSize), MenuStyle.Ember);
@@ -218,16 +272,34 @@ namespace AscendJigoku.UI
             root.anchoredPosition = new Vector2(SlotSize * 0.5f + index * SlotStep, SlotSize * 0.5f);
             var inner = Box(root, "Inner", new Vector2(SlotSize - 4, SlotSize - 4), new Color(0.05f, 0.03f, 0.03f, 0.9f));
 
+            // Charge and Cooldown are anchored to the bottom and stretched upward by setting anchorMax.y (0-1).
             var charge = Box(inner, "Charge", Vector2.zero, new Color(MenuStyle.Ember.r, MenuStyle.Ember.g, MenuStyle.Ember.b, 0.45f));
-            charge.anchorMin = Vector2.zero; charge.anchorMax = new Vector2(1, 0); charge.pivot = new Vector2(0.5f, 0);
+            charge.anchorMin = Vector2.zero;
+            charge.anchorMax = new Vector2(1, 0);
+            charge.pivot = new Vector2(0.5f, 0);
             var cover = Box(inner, "Cooldown", Vector2.zero, new Color(0, 0, 0, 0.7f));
-            cover.anchorMin = Vector2.zero; cover.anchorMax = new Vector2(1, 0); cover.pivot = new Vector2(0.5f, 0);
+            cover.anchorMin = Vector2.zero;
+            cover.anchorMax = new Vector2(1, 0);
+            cover.pivot = new Vector2(0.5f, 0);
 
-            var label = MenuStyle.Label(inner, "Name", name, new Vector2(0, -2), new Vector2(SlotSize, 24), 15, TextAnchor.MiddleCenter, MenuStyle.TextColor);
-            var key = MenuStyle.Label(root, "Key", "", new Vector2(0, SlotSize * 0.5f + 14), new Vector2(SlotStep, 22), 14, TextAnchor.MiddleCenter, MenuStyle.MutedText);
-            return new Slot { Action = action, Root = root, Frame = root.GetComponent<Image>(), Cover = cover.GetComponent<Image>(), Charge = charge.GetComponent<Image>(), Name = label, Key = key };
+            var label = MenuStyle.Label(
+                inner, "Name", name, new Vector2(0, -2), new Vector2(SlotSize, 24), 15, TextAnchor.MiddleCenter, MenuStyle.TextColor);
+            var key = MenuStyle.Label(
+                root, "Key", "", new Vector2(0, SlotSize * 0.5f + 14), new Vector2(SlotStep, 22), 14, TextAnchor.MiddleCenter,
+                MenuStyle.MutedText);
+            return new Slot
+            {
+                Action = action,
+                Root = root,
+                Frame = root.GetComponent<Image>(),
+                Cover = cover.GetComponent<Image>(),
+                Charge = charge.GetComponent<Image>(),
+                Name = label,
+                Key = key
+            };
         }
 
+        // Per-frame cooldown state for each slot, from the player's components. `remaining` passed to DrawSlot is 0-1.
         private void UpdateAbilities()
         {
             float now = Time.unscaledTime;
@@ -236,13 +308,16 @@ namespace AscendJigoku.UI
             {
                 bool cooling = controller.DashOnCooldown;
                 if (cooling && dash.WasReady) dash.CooldownStart = Time.time;
-                float remaining = cooling ? 1 - Mathf.Clamp01((Time.time - dash.CooldownStart) / Mathf.Max(0.01f, controller.DashCycleSeconds)) : 0;
+                float remaining = cooling
+                    ? 1 - Mathf.Clamp01((Time.time - dash.CooldownStart) / Mathf.Max(0.01f, controller.DashCycleSeconds))
+                    : 0;
                 bool spent = !cooling && controller.DashSpentInAir; // must land before dashing again
                 DrawSlot(dash, spent ? 1 : remaining, !cooling && !spent, now);
             }
 
             if (parry != null)
             {
+                // While the parry is busy but not yet recovering the slot stays fully covered (remaining = 1).
                 float left = parry.RecoveryRemaining;
                 if (parry.IsBusy && parrySlot.WasReady) parrySlot.Peak = 0;
                 parrySlot.Peak = Mathf.Max(parrySlot.Peak, left);
@@ -276,14 +351,20 @@ namespace AscendJigoku.UI
 
         private string SwapKey() => prompts != null ? prompts.Button("SwapWeapon").ToUpperInvariant() : "";
 
+        // Announce() text shows for 6 seconds, fading in quickly and out over the last half second.
         private void UpdateNotice()
         {
             float age = Time.unscaledTime - noticeAt;
-            if (notice == null || age > 6) { noticeGroup.alpha = 0; return; }
+            if (notice == null || age > 6)
+            {
+                noticeGroup.alpha = 0;
+                return;
+            }
             noticeText.text = notice.Replace("{swap}", SwapKey());
             noticeGroup.alpha = Mathf.Clamp01(Mathf.Min(age * 3, (6 - age) * 2));
         }
 
+        // Applies cooldown cover, ready flash, colors and the (shortened) key label to one slot.
         private void DrawSlot(Slot slot, float remaining, bool ready, float now)
         {
             if (ready && !slot.WasReady) slot.FlashUntil = now + 0.2f;
@@ -295,12 +376,15 @@ namespace AscendJigoku.UI
             slot.Name.color = ready ? MenuStyle.TextColor : MenuStyle.DimText;
             float pop = flash ? 1 + 0.1f * ((slot.FlashUntil - now) / 0.2f) : 1;
             slot.Root.localScale = new Vector3(pop, pop, 1);
-            string key = prompts != null ? prompts.Button(slot.Action).Replace("Left ", "").Replace("Right ", "").ToUpperInvariant() : "";
+            string key = prompts != null
+                ? prompts.Button(slot.Action).Replace("Left ", "").Replace("Right ", "").ToUpperInvariant()
+                : "";
             slot.Key.text = key.Length > 8 ? key.Substring(0, 8) : key;
         }
 
         // ---------- Boss bar ----------
 
+        // Name above, thin health track with a pale "recent damage" chip behind the fill, tell text below.
         private void BuildBossBar()
         {
             bossRoot = Corner("Boss", new Vector2(0.5f, 1), new Vector2(0, -32), new Vector2(620, 110));
@@ -314,18 +398,33 @@ namespace AscendJigoku.UI
             track.anchoredPosition = new Vector2(0, 8);
             bossChip = Box(track, "Recent damage", Vector2.zero, new Color(1, 0.85f, 0.7f, 0.8f));
             bossFill = Box(track, "Health", Vector2.zero, MenuStyle.EmberDeep);
-            foreach (var bar in new[] { bossChip, bossFill }) { bar.anchorMin = Vector2.zero; bar.pivot = new Vector2(0, 0.5f); bar.sizeDelta = Vector2.zero; }
-            var bracketLeft = Box(track, "Cap L", new Vector2(4, 18), MenuStyle.Ember); bracketLeft.anchorMin = bracketLeft.anchorMax = new Vector2(0, 0.5f); bracketLeft.anchoredPosition = new Vector2(-6, 0);
-            var bracketRight = Box(track, "Cap R", new Vector2(4, 18), MenuStyle.Ember); bracketRight.anchorMin = bracketRight.anchorMax = new Vector2(1, 0.5f); bracketRight.anchoredPosition = new Vector2(6, 0);
+            // Both bars grow from the left edge; UpdateBossBar sets anchorMax.x to the health fraction.
+            foreach (var bar in new[] { bossChip, bossFill })
+            {
+                bar.anchorMin = Vector2.zero;
+                bar.pivot = new Vector2(0, 0.5f);
+                bar.sizeDelta = Vector2.zero;
+            }
+            var bracketLeft = Box(track, "Cap L", new Vector2(4, 18), MenuStyle.Ember);
+            bracketLeft.anchorMin = bracketLeft.anchorMax = new Vector2(0, 0.5f);
+            bracketLeft.anchoredPosition = new Vector2(-6, 0);
+            var bracketRight = Box(track, "Cap R", new Vector2(4, 18), MenuStyle.Ember);
+            bracketRight.anchorMin = bracketRight.anchorMax = new Vector2(1, 0.5f);
+            bracketRight.anchoredPosition = new Vector2(6, 0);
 
-            bossTellText = MenuStyle.Label(bossRoot, "Tell", "", new Vector2(0, -22), new Vector2(900, 28), 18, TextAnchor.MiddleCenter, MenuStyle.MutedText);
+            bossTellText = MenuStyle.Label(
+                bossRoot, "Tell", "", new Vector2(0, -22), new Vector2(900, 28), 18, TextAnchor.MiddleCenter, MenuStyle.MutedText);
         }
 
         private void UpdateBossBar()
         {
             bool visible = bossOwner != null; // a destroyed owner compares equal to null
             bossGroup.alpha = Mathf.MoveTowards(bossGroup.alpha, visible ? 1 : 0, Time.unscaledDeltaTime * 3);
-            if (!visible) { chip = 1; return; }
+            if (!visible)
+            {
+                chip = 1;
+                return;
+            }
 
             float fraction = Mathf.Clamp01((float)bossHealth / bossMax);
             if (chip < fraction) chip = fraction;
@@ -346,29 +445,68 @@ namespace AscendJigoku.UI
                     bossTicks[i] = tick;
                 }
             }
-            for (int i = 0; i < marks; i++) bossTicks[i].anchorMin = bossTicks[i].anchorMax = new Vector2(Mathf.Clamp01(bossPhaseMarks[i]), 0.5f);
+            for (int i = 0; i < marks; i++)
+                bossTicks[i].anchorMin = bossTicks[i].anchorMax = new Vector2(Mathf.Clamp01(bossPhaseMarks[i]), 0.5f);
+        }
+
+        // ---------- Coins ----------
+
+        private void BuildCoins()
+        {
+            coinRow = Corner("Coins", new Vector2(1, 1), new Vector2(-Margin, -28), new Vector2(240, 36));
+            var coin = Box(coinRow, "Coin", new Vector2(20, 20), MenuStyle.Ember);
+            coin.anchorMin = coin.anchorMax = new Vector2(1, 0.5f);
+            coin.anchoredPosition = new Vector2(-14, 0);
+            coin.localRotation = Quaternion.Euler(0, 0, 45);
+            Box(coin, "Shine", new Vector2(8, 8), MenuStyle.TextColor);
+            coinText = MenuStyle.Label(coinRow, "Count", "", Vector2.zero, new Vector2(200, 36), 26, TextAnchor.MiddleRight);
+            coinText.rectTransform.anchorMin = coinText.rectTransform.anchorMax = coinText.rectTransform.pivot = new Vector2(1, 0.5f);
+            coinText.rectTransform.anchoredPosition = new Vector2(-38, 0);
+            MenuStyle.StyleTitle(coinText, 26);
+            coinRow.gameObject.SetActive(false);
+        }
+
+        private void UpdateCoins()
+        {
+            // The pillar generator adds the wallet at runtime, so keep looking until one exists.
+            if (wallet == null) wallet = player.GetComponent<CurrencyWallet>();
+            if (coinRow.gameObject.activeSelf != (wallet != null)) coinRow.gameObject.SetActive(wallet != null);
+            if (wallet == null) return;
+            float now = Time.unscaledTime;
+            if (wallet.Balance != shownCoins)
+            {
+                if (shownCoins >= 0) coinPopUntil = now + 0.2f;
+                shownCoins = wallet.Balance;
+                coinText.text = shownCoins.ToString();
+            }
+            float pop = now < coinPopUntil ? 1 + 0.15f * ((coinPopUntil - now) / 0.2f) : 1;
+            coinRow.localScale = new Vector3(pop, pop, 1);
         }
 
         private static string Roman(int n) => n switch { 1 => "I", 2 => "II", 3 => "III", 4 => "IV", 5 => "V", _ => n.ToString() };
 
         // ---------- Helpers ----------
 
+        // Empty container pinned to a screen corner/edge (anchor) with an offset from it.
         private RectTransform Corner(string name, Vector2 anchor, Vector2 offset, Vector2 size)
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(canvas, false);
             var rect = (RectTransform)go.transform;
             rect.anchorMin = rect.anchorMax = rect.pivot = anchor;
-            rect.anchoredPosition = offset; rect.sizeDelta = size;
+            rect.anchoredPosition = offset;
+            rect.sizeDelta = size;
             return rect;
         }
 
+        // Plain colored rectangle that never blocks clicks.
         private static RectTransform Box(Transform parent, string name, Vector2 size, Color color)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
             var image = go.GetComponent<Image>();
-            image.color = color; image.raycastTarget = false;
+            image.color = color;
+            image.raycastTarget = false;
             var rect = (RectTransform)go.transform;
             rect.sizeDelta = size;
             return rect;

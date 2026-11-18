@@ -34,5 +34,5 @@ ignore.conf
 
 # OS files
 .DS_Store
-Thumbs.db*.slnx
+Thumbs.db
 *.slnx

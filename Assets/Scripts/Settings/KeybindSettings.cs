@@ -25,10 +25,20 @@ namespace AscendJigoku.Settings
         }
         private static readonly Extra[] extras =
         {
-            new Extra { Id = "ability", Label = "Weapon ability", PrefKey = "keybinds.v1.ability", DefaultPath = "<Keyboard>/u", PadPath = "<Gamepad>/rightTrigger" },
-            new Extra { Id = "swap", Label = "Swap weapon", PrefKey = "keybinds.v1.swap", DefaultPath = "<Keyboard>/i", PadPath = "<Gamepad>/leftTrigger" }
+            new Extra
+            {
+                Id = "ability", Label = "Weapon ability", PrefKey = "keybinds.v1.ability",
+                DefaultPath = "<Keyboard>/u", PadPath = "<Gamepad>/rightTrigger"
+            },
+            new Extra
+            {
+                Id = "swap", Label = "Swap weapon", PrefKey = "keybinds.v1.swap",
+                DefaultPath = "<Keyboard>/i", PadPath = "<Gamepad>/leftTrigger"
+            }
         };
 
+        // One row in the settings screen. BindingIndex picks which binding of Action is the rebindable keyboard key
+        // (a composite part for movement, the plain keyboard binding for buttons).
         public sealed class Entry
         {
             public string Id, Label;
@@ -39,6 +49,8 @@ namespace AscendJigoku.Settings
             public string EffectivePath => Action.bindings[BindingIndex].effectivePath;
         }
 
+        // master is the single source of truth for saved keys; every other PlayerActions asset gets a copy of its overrides.
+        // The interact and extra "templates" do the same job for actions that aren't in the PlayerActions asset.
         private static PlayerActions master;
         private static InputAction interactTemplate;
         private static readonly List<Entry> entries = new List<Entry>();
@@ -49,18 +61,43 @@ namespace AscendJigoku.Settings
         public static int Version { get; private set; }
         public static event Action Changed;
 
-        public static IReadOnlyList<Entry> Entries { get { Init(); return entries; } }
-        public static string InteractLabel { get { Init(); return interactTemplate.GetBindingDisplayString(0); } }
+        public static IReadOnlyList<Entry> Entries
+        {
+            get
+            {
+                Init();
+                return entries;
+            }
+        }
+
+        public static string InteractLabel
+        {
+            get
+            {
+                Init();
+                return interactTemplate.GetBindingDisplayString(0);
+            }
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
-            master = null; interactTemplate = null;
-            entries.Clear(); assets.Clear(); interactActions.Clear();
-            foreach (var extra in extras) { extra.Template = null; extra.Live.Clear(); }
-            Version = 0; Changed = null;
+            master = null;
+            interactTemplate = null;
+            entries.Clear();
+            assets.Clear();
+            interactActions.Clear();
+            foreach (var extra in extras)
+            {
+                extra.Template = null;
+                extra.Live.Clear();
+            }
+            Version = 0;
+            Changed = null;
         }
 
+        // Lazy setup: builds the master actions, loads saved overrides from PlayerPrefs and lists the rebindable entries
+        // in the order the settings screen shows them.
         private static void Init()
         {
             if (master != null && master.asset != null) return;
@@ -72,7 +109,11 @@ namespace AscendJigoku.Settings
             if (!string.IsNullOrEmpty(json))
             {
                 try { master.asset.LoadBindingOverridesFromJson(json); }
-                catch (Exception e) { Debug.LogWarning("Saved keybinds were unreadable and have been reset. " + e.Message); PlayerPrefs.DeleteKey(ActionsKey); }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("Saved keybinds were unreadable and have been reset. " + e.Message);
+                    PlayerPrefs.DeleteKey(ActionsKey);
+                }
             }
             string interact = PlayerPrefs.GetString(InteractKey, "");
             if (!string.IsNullOrEmpty(interact)) interactTemplate.ApplyBindingOverride(0, interact);
@@ -92,11 +133,15 @@ namespace AscendJigoku.Settings
                 extra.Template = new InputAction(extra.Label + " (settings)", InputActionType.Button, extra.DefaultPath);
                 string saved = PlayerPrefs.GetString(extra.PrefKey, "");
                 if (!string.IsNullOrEmpty(saved)) extra.Template.ApplyBindingOverride(0, saved);
-                entries.Add(new Entry { Id = extra.Id, Label = extra.Label, Action = extra.Template, BindingIndex = 0, IsGameplayButton = true });
+                entries.Add(new Entry
+                {
+                    Id = extra.Id, Label = extra.Label, Action = extra.Template, BindingIndex = 0, IsGameplayButton = true
+                });
             }
             entries.Add(new Entry { Id = "interact", Label = "Talk / Interact", Action = interactTemplate, BindingIndex = 0 });
         }
 
+        // Movement is a 2D-vector composite; this finds one of its keyboard parts ("up", "down", ...) by name.
         private static void AddPart(string id, string label, string actionName, string part)
         {
             var action = master.asset.FindAction("PlayerInput/" + actionName, true);
@@ -104,10 +149,14 @@ namespace AscendJigoku.Settings
             for (int i = 0; i < bindings.Count; i++)
                 if (bindings[i].isPartOfComposite && string.Equals(bindings[i].name, part, StringComparison.OrdinalIgnoreCase)
                     && bindings[i].path.StartsWith("<Keyboard>", StringComparison.OrdinalIgnoreCase))
-                { entries.Add(new Entry { Id = id, Label = label, Action = action, BindingIndex = i }); return; }
+                {
+                    entries.Add(new Entry { Id = id, Label = label, Action = action, BindingIndex = i });
+                    return;
+                }
             Debug.LogWarning($"Keybinds: no keyboard '{part}' binding on {actionName}.");
         }
 
+        // Finds the plain (non-composite) keyboard binding of a button action, skipping gamepad bindings.
         private static void AddButton(string id, string label, string actionName)
         {
             var action = master.asset.FindAction("PlayerInput/" + actionName, true);
@@ -115,7 +164,10 @@ namespace AscendJigoku.Settings
             for (int i = 0; i < bindings.Count; i++)
                 if (!bindings[i].isComposite && !bindings[i].isPartOfComposite
                     && bindings[i].path.StartsWith("<Keyboard>", StringComparison.OrdinalIgnoreCase))
-                { entries.Add(new Entry { Id = id, Label = label, Action = action, BindingIndex = i, IsGameplayButton = true }); return; }
+                {
+                    entries.Add(new Entry { Id = id, Label = label, Action = action, BindingIndex = i, IsGameplayButton = true });
+                    return;
+                }
             Debug.LogWarning($"Keybinds: no keyboard binding on {actionName}.");
         }
 
@@ -152,6 +204,7 @@ namespace AscendJigoku.Settings
             return action;
         }
 
+        // Call when the owning weapon is destroyed so the template stops updating a dead action.
         public static void ReleaseExtraAction(string id, InputAction action) => FindExtra(id).Live.Remove(action);
 
         public static string ExtraLabel(string id, bool controller)
@@ -164,12 +217,14 @@ namespace AscendJigoku.Settings
 
         private static Extra FindExtra(string id)
         {
-            foreach (var extra in extras) if (extra.Id == id) return extra;
+            foreach (var extra in extras)
+                if (extra.Id == id) return extra;
             throw new ArgumentException("Unknown keybind " + id);
         }
 
         public static void ReleaseInteractAction(InputAction action) => interactActions.Remove(action);
 
+        // Copies the master's overrides onto another PlayerActions asset (or clears them if there are none).
         private static void ApplyTo(InputActionAsset asset)
         {
             string json = master.asset.SaveBindingOverridesAsJson();
@@ -177,6 +232,8 @@ namespace AscendJigoku.Settings
             else asset.LoadBindingOverridesFromJson(json);
         }
 
+        // Persists every override to PlayerPrefs, pushes them to all live actions, then bumps Version and raises Changed
+        // so on-screen key prompts refresh.
         private static void SaveAndBroadcast()
         {
             PlayerPrefs.SetString(ActionsKey, master.asset.SaveBindingOverridesAsJson());
@@ -228,7 +285,7 @@ namespace AscendJigoku.Settings
                 .WithControlsExcluding("<Keyboard>/leftArrow")
                 .WithControlsExcluding("<Keyboard>/rightArrow")
                 .WithCancelingThrough("<Keyboard>/escape")
-                .OnMatchWaitForAnother(0.05f)
+                .OnMatchWaitForAnother(0.05f) // seconds; lets a modifier or second key settle before accepting
                 .OnCancel(op => { op.Dispose(); onFinished?.Invoke(""); })
                 .OnComplete(op =>
                 {
@@ -254,7 +311,9 @@ namespace AscendJigoku.Settings
             if (keyboard == null) return false;
             Init();
             foreach (var entry in entries)
-                if (entry.IsGameplayButton && InputControlPath.TryFindControl(keyboard, entry.EffectivePath) is ButtonControl key && key.isPressed)
+                if (entry.IsGameplayButton
+                    && InputControlPath.TryFindControl(keyboard, entry.EffectivePath) is ButtonControl key
+                    && key.isPressed)
                     return true;
             return false;
         }

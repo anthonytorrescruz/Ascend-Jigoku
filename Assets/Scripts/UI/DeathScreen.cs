@@ -7,7 +7,9 @@ using UnityEngine.UI;
 
 namespace AscendJigoku.UI
 {
-    // The menu is authored in its own scene. Only retry context survives the level unload.
+    // The menu is authored in its own scene (Death.unity). Whoever kills the player calls Show(level), which remembers
+    // the level, time scale and cursor state in statics (only these survive the level unload) and loads the Death scene.
+    // Retry (button or R) reloads that level and restores gameplay state; Give Up quits via MainMenu.
     public sealed class DeathScreen : MonoBehaviour
     {
         public const string ScenePath = "Assets/Scenes/Death.unity";
@@ -38,6 +40,7 @@ namespace AscendJigoku.UI
             gameplayCursorVisible = true;
         }
 
+        // Called from gameplay with the scene the player died in.
         public static void Show(Scene level)
         {
             if (loading || current != null) return;
@@ -67,6 +70,7 @@ namespace AscendJigoku.UI
             Cursor.visible = true;
         }
 
+        // Pre-selects Retry so keyboard and pad work immediately, fades the buttons in and adds the "R" hint label in code.
         private void Start()
         {
             if (EventSystem.current != null && retryButton != null)
@@ -78,7 +82,9 @@ namespace AscendJigoku.UI
             var canvas = retryButton != null ? retryButton.GetComponentInParent<Canvas>() : null;
             if (canvas != null)
             {
-                var hint = MenuStyle.Label(canvas.transform, "Retry Hint", "Press R to retry", new Vector2(0, -170), new Vector2(600, 30), 20, TextAnchor.MiddleCenter, MenuStyle.MutedText);
+                var hint = MenuStyle.Label(
+                    canvas.transform, "Retry Hint", "Press R to retry", new Vector2(0, -170), new Vector2(600, 30), 20,
+                    TextAnchor.MiddleCenter, MenuStyle.MutedText);
                 hint.raycastTarget = false;
             }
         }
@@ -91,6 +97,7 @@ namespace AscendJigoku.UI
             if (keyboard != null && (keyboard.rKey.wasPressedThisFrame)) Retry();
         }
 
+        // Fade-in on unscaled time (revealSeconds is in seconds).
         private IEnumerator Reveal()
         {
             if (revealGroup == null) yield break;
@@ -105,6 +112,7 @@ namespace AscendJigoku.UI
             revealGroup.alpha = 1;
         }
 
+        // Wired to the Retry button in the scene. Falls back to fallbackGameplayScene when the Death scene was opened directly.
         public void Retry()
         {
             if (leaving) return;
@@ -127,6 +135,7 @@ namespace AscendJigoku.UI
             MainMenu.QuitApplication();
         }
 
+        // Puts back the time scale and cursor the level had before dying, and forgets the retry context.
         private static void RestoreGameplay()
         {
             Time.timeScale = gameplayTimeScale;

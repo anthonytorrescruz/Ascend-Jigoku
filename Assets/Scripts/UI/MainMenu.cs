@@ -4,6 +4,7 @@ using UnityEngine.SceneManagement;
 
 namespace AscendJigoku.UI
 {
+    // Logic behind the scene-authored main menu. MainMenuExtras adds the other buttons at runtime and MenuSceneSkin restyles them.
     public sealed class MainMenu : MonoBehaviour
     {
         [SerializeField] private string gameplayScene = "Main";
@@ -30,13 +31,18 @@ namespace AscendJigoku.UI
             }
             starting = true;
             VerticalLevelGenerator.BeginNewRun();
-            if (tutorial) AscendJigoku.Gameplay.Tutorial.ArmReplay(); else AscendJigoku.Gameplay.Tutorial.ArmForNewRun(); // first run only
+            // ArmForNewRun only shows the tutorial on a first run.
+            if (tutorial)
+                AscendJigoku.Gameplay.Tutorial.ArmReplay();
+            else
+                AscendJigoku.Gameplay.Tutorial.ArmForNewRun();
             AscendJigoku.Gameplay.RunSave.Delete(); // START always replaces the saved run
             SceneManager.LoadScene(gameplayScene);
         }
 
         public void QuitGame() => QuitApplication();
 
+        // Also used by the pause and death menus. In the editor it stops play mode instead of quitting.
         public static void QuitApplication()
         {
 #if UNITY_EDITOR

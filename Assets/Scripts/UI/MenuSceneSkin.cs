@@ -39,6 +39,8 @@ namespace AscendJigoku.UI
             if (buttons.Count > 0) MenuStyle.SelectForController(buttons[0]);
         }
 
+        // Death.unity keeps its authored title and buttons; this restyles them in place. The first text that isn't
+        // inside a button is treated as the title.
         private static void SkinDeathScreen(Scene scene)
         {
             var death = Object.FindAnyObjectByType<DeathScreen>();
@@ -57,6 +59,7 @@ namespace AscendJigoku.UI
                 ((RectTransform)title.transform).sizeDelta = new Vector2(1100, 150);
             }
 
+            // Buttons are found by name ("Retry", "Give Up") since the scene's wiring is left untouched.
             Button retry = null, giveUp = null;
             foreach (var button in canvas.GetComponentsInChildren<Button>(true))
             {
@@ -64,10 +67,19 @@ namespace AscendJigoku.UI
                 else if (button.name.Contains("Give")) giveUp = button;
             }
             var size = new Vector2(220, 56);
-            if (retry != null) { SizeButton(retry, size, new Vector2(-130, -80)); MenuStyle.ApplyButton(retry, 34); }
-            if (giveUp != null) { SizeButton(giveUp, size, new Vector2(130, -80)); MenuStyle.ApplyButton(giveUp, 34); }
+            if (retry != null)
+            {
+                SizeButton(retry, size, new Vector2(-130, -80));
+                MenuStyle.ApplyButton(retry, 34);
+            }
+            if (giveUp != null)
+            {
+                SizeButton(giveUp, size, new Vector2(130, -80));
+                MenuStyle.ApplyButton(giveUp, 34);
+            }
         }
 
+        // The backdrop doubles as a marker so a scene is only skinned once.
         private static bool IsSkinned(Canvas canvas) => canvas.transform.Find("Ember Backdrop") != null;
 
         // Dark ground plus embers, behind everything else on the canvas.

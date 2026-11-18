@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// Segment health bar: shows one prefab-authored segment object per remaining hit point. Created by GameHud;
+// GameplayHud switches it off in scenes where it takes over.
 public class HealthBarUI : MonoBehaviour
 {
     [SerializeField] private PlayerHealth playerHealth;

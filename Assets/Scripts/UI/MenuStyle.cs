@@ -59,6 +59,7 @@ namespace AscendJigoku.UI
             }
         }
 
+        // uGUI needs an EventSystem for clicks and keyboard/pad navigation; scenes without one get one created here.
         public static void EnsureEventSystem()
         {
             if (EventSystem.current != null || UnityEngine.Object.FindAnyObjectByType<EventSystem>() != null) return;
@@ -66,6 +67,7 @@ namespace AscendJigoku.UI
             go.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
         }
 
+        // Overlay canvas scaled to 1280x720. Every runtime menu starts here; higher sortingOrder draws on top.
         public static RectTransform CreateCanvas(string name, int sortingOrder, Transform parent = null)
         {
             EnsureEventSystem();
@@ -77,7 +79,8 @@ namespace AscendJigoku.UI
             var scaler = go.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = ReferenceResolution;
-            scaler.matchWidthOrHeight = 0.5f;
+            // Ultrawide fits to height, otherwise menus laid out for 720 tall clip top and bottom.
+            scaler.matchWidthOrHeight = Screen.width * 9 > Screen.height * 16 ? 1f : 0.5f;
             return (RectTransform)go.transform;
         }
 
@@ -120,6 +123,7 @@ namespace AscendJigoku.UI
             return rect;
         }
 
+        // Plain text object centered on `position` within the parent. Text never blocks clicks.
         public static Text Label(Transform parent, string name, string text, Vector2 position, Vector2 size,
             int fontSize, TextAnchor alignment = TextAnchor.MiddleCenter, Color? color = null)
         {
@@ -127,9 +131,14 @@ namespace AscendJigoku.UI
             go.transform.SetParent(parent, false);
             Place((RectTransform)go.transform, position, size);
             var label = go.GetComponent<Text>();
-            label.font = Font; label.fontSize = fontSize; label.alignment = alignment;
-            label.color = color ?? TextColor; label.raycastTarget = false; label.text = text;
-            label.horizontalOverflow = HorizontalWrapMode.Wrap; label.verticalOverflow = VerticalWrapMode.Overflow;
+            label.font = Font;
+            label.fontSize = fontSize;
+            label.alignment = alignment;
+            label.color = color ?? TextColor;
+            label.raycastTarget = false;
+            label.text = text;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
             return label;
         }
 
@@ -161,13 +170,16 @@ namespace AscendJigoku.UI
 
         public static void StyleTitle(Text title, int size)
         {
-            title.font = TitleFont; title.fontSize = size; title.color = TitleColor;
+            title.font = TitleFont;
+            title.fontSize = size;
+            title.color = TitleColor;
             var shadow = title.GetComponent<Shadow>();
             if (shadow == null) shadow = title.gameObject.AddComponent<Shadow>();
             shadow.effectColor = new Color(EmberDeep.r, EmberDeep.g, EmberDeep.b, 0.75f);
             shadow.effectDistance = new Vector2(Mathf.Max(2, size / 20), -Mathf.Max(2, size / 20));
         }
 
+        // Text-only button: the label is the clickable graphic and ApplyButton adds the Ember styling.
         public static Button Button(Transform parent, string text, Vector2 position, Action onClick, Vector2? size = null,
             int fontSize = ButtonTextSize, TextAnchor alignment = TextAnchor.MiddleCenter)
         {
@@ -186,11 +198,17 @@ namespace AscendJigoku.UI
         public static void ApplyButton(Button button, int? fontSize = null, TextAnchor? alignment = null)
         {
             var image = button.GetComponent<Image>();
-            if (image != null) { image.sprite = null; image.color = Color.clear; } // invisible, still clickable
+            if (image != null)
+            {
+                // Invisible, but still receives clicks.
+                image.sprite = null;
+                image.color = Color.clear;
+            }
             var label = button.GetComponentInChildren<Text>(true);
             if (label != null)
             {
-                label.font = Font; label.color = Color.white; // tinted by the button's colors
+                label.font = Font;
+                label.color = Color.white; // tinted by the button's colors
                 if (fontSize.HasValue) label.fontSize = fontSize.Value;
                 if (alignment.HasValue) label.alignment = alignment.Value;
                 button.targetGraphic = label;
@@ -207,7 +225,11 @@ namespace AscendJigoku.UI
         }
 
         // Thin ember slider: ash track, ember fill, small bright handle.
-        public static Slider Slider(Transform parent, Vector2 position, float width, float min, float max, bool wholeNumbers, float value, Action<float> onChanged)
+        // Built from scratch (track, fill, rotated-square handle) because the default uGUI slider needs sprites.
+        // The initial value is set without firing onChanged.
+        public static Slider Slider(
+            Transform parent, Vector2 position, float width, float min, float max, bool wholeNumbers, float value,
+            Action<float> onChanged)
         {
             var root = new GameObject("Slider", typeof(RectTransform), typeof(Slider));
             root.transform.SetParent(parent, false);
@@ -216,53 +238,73 @@ namespace AscendJigoku.UI
             var track = new GameObject("Track", typeof(RectTransform), typeof(Image));
             track.transform.SetParent(root.transform, false);
             var trackRect = (RectTransform)track.transform;
-            trackRect.anchorMin = new Vector2(0, 0.5f); trackRect.anchorMax = new Vector2(1, 0.5f);
-            trackRect.sizeDelta = new Vector2(0, 6); trackRect.anchoredPosition = Vector2.zero;
+            trackRect.anchorMin = new Vector2(0, 0.5f);
+            trackRect.anchorMax = new Vector2(1, 0.5f);
+            trackRect.sizeDelta = new Vector2(0, 6);
+            trackRect.anchoredPosition = Vector2.zero;
             track.GetComponent<Image>().color = Ash;
 
             var fillArea = new GameObject("Fill Area", typeof(RectTransform));
             fillArea.transform.SetParent(root.transform, false);
             var fillAreaRect = (RectTransform)fillArea.transform;
-            fillAreaRect.anchorMin = new Vector2(0, 0.5f); fillAreaRect.anchorMax = new Vector2(1, 0.5f);
-            fillAreaRect.sizeDelta = new Vector2(0, 6); fillAreaRect.anchoredPosition = Vector2.zero;
+            fillAreaRect.anchorMin = new Vector2(0, 0.5f);
+            fillAreaRect.anchorMax = new Vector2(1, 0.5f);
+            fillAreaRect.sizeDelta = new Vector2(0, 6);
+            fillAreaRect.anchoredPosition = Vector2.zero;
             var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
             fill.transform.SetParent(fillArea.transform, false);
-            var fillRect = (RectTransform)fill.transform; fillRect.sizeDelta = Vector2.zero;
+            var fillRect = (RectTransform)fill.transform;
+            fillRect.sizeDelta = Vector2.zero;
             fill.GetComponent<Image>().color = EmberDeep;
 
             var handleArea = new GameObject("Handle Slide Area", typeof(RectTransform));
             handleArea.transform.SetParent(root.transform, false);
             var handleAreaRect = (RectTransform)handleArea.transform;
-            handleAreaRect.anchorMin = Vector2.zero; handleAreaRect.anchorMax = Vector2.one;
-            handleAreaRect.offsetMin = new Vector2(7, 0); handleAreaRect.offsetMax = new Vector2(-7, 0);
+            handleAreaRect.anchorMin = Vector2.zero;
+            handleAreaRect.anchorMax = Vector2.one;
+            handleAreaRect.offsetMin = new Vector2(7, 0);
+            handleAreaRect.offsetMax = new Vector2(-7, 0);
             var handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
             handle.transform.SetParent(handleArea.transform, false);
-            var handleRect = (RectTransform)handle.transform; handleRect.sizeDelta = new Vector2(14, -14);
+            var handleRect = (RectTransform)handle.transform;
+            handleRect.sizeDelta = new Vector2(14, -14);
             handleRect.localRotation = Quaternion.Euler(0, 0, 45);
-            var handleImage = handle.GetComponent<Image>(); handleImage.color = Color.white;
+            var handleImage = handle.GetComponent<Image>();
+            handleImage.color = Color.white;
 
             var slider = root.GetComponent<Slider>();
-            slider.fillRect = fillRect; slider.handleRect = handleRect; slider.targetGraphic = handleImage;
+            slider.fillRect = fillRect;
+            slider.handleRect = handleRect;
+            slider.targetGraphic = handleImage;
             slider.direction = UnityEngine.UI.Slider.Direction.LeftToRight;
             var colors = ColorBlock.defaultColorBlock;
-            colors.normalColor = MutedText; colors.highlightedColor = Ember; colors.selectedColor = Ember;
-            colors.pressedColor = TextColor; colors.fadeDuration = FadeDuration;
+            colors.normalColor = MutedText;
+            colors.highlightedColor = Ember;
+            colors.selectedColor = Ember;
+            colors.pressedColor = TextColor;
+            colors.fadeDuration = FadeDuration;
             slider.colors = colors;
-            slider.minValue = min; slider.maxValue = max; slider.wholeNumbers = wholeNumbers;
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.wholeNumbers = wholeNumbers;
             slider.SetValueWithoutNotify(value);
             if (onChanged != null) slider.onValueChanged.AddListener(v => onChanged(v));
             return slider;
         }
 
+        // Centered anchor and pivot, so `position` is an offset from the parent's middle.
         public static void Place(RectTransform rect, Vector2 position, Vector2 size)
         {
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = position; rect.sizeDelta = size;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
         }
 
         public static void Stretch(RectTransform rect)
         {
-            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
         }
 
         // Start every menu with its first option selected so keyboard and pad work immediately.

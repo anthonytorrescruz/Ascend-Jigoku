@@ -184,7 +184,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 88bd9184187289b47bbba8760b1bdd0f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
-  maxHealth: 25
+  maxHealth: 10
   despawnDelay: 2.35
   damagePerHitCap: 1
 --- !u!114 &492927892725551275

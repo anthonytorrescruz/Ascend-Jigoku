@@ -9,6 +9,7 @@ namespace AscendJigoku.UI
 {
     // Esc / Start pauses gameplay. Installed automatically in any scene with a PlayerHealth,
     // except AnthonyScene (AnthonySession has its own test-scene pause). Add it by hand to tune it.
+    // Pausing sets Time.timeScale to 0, locks player input and shows a menu built in code (Build). Esc / Start / B resumes.
     [DefaultExecutionOrder(100)]
     public sealed class PauseMenu : MonoBehaviour
     {
@@ -29,6 +30,7 @@ namespace AscendJigoku.UI
         private CursorLockMode cursorLock;
         private bool cursorVisible;
 
+        // Hooks scene loads so every gameplay scene gets a pause menu without any scene setup.
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {
@@ -73,16 +75,28 @@ namespace AscendJigoku.UI
             if (Time.timeScale > 0) Time.timeScale = GameSettings.GameplayTimeScale;
         }
 
-        private void OnEnable() { toggle.Enable(); back.Enable(); }
-        private void OnDisable() { toggle.Disable(); back.Disable(); }
+        private void OnEnable()
+        {
+            toggle.Enable();
+            back.Enable();
+        }
+
+        private void OnDisable()
+        {
+            toggle.Disable();
+            back.Disable();
+        }
 
         private void OnDestroy()
         {
             if (paused && !leaving) Time.timeScale = GameSettings.GameplayTimeScale;
             if (current == this) current = null;
-            toggle.Dispose(); back.Dispose();
+            toggle.Dispose();
+            back.Dispose();
         }
 
+        // While paused: expire the restart confirmation, and close on Esc/Start/B unless the settings menu is open or
+        // just used that same press to go back (LastBackFrame).
         private void Update()
         {
             if (leaving || canvas == null) return;
@@ -96,6 +110,7 @@ namespace AscendJigoku.UI
             if (toggle.WasPressedThisFrame() || back.WasPressedThisFrame()) Resume();
         }
 
+        // Not while dead, in a shop, or when something else (cutscene, dialogue) has locked the player.
         private bool CanPause()
         {
             if (Time.timeScale <= 0 || player == null || player.CurrentHealth <= 0) return false;
@@ -111,8 +126,10 @@ namespace AscendJigoku.UI
             paused = true;
             Time.timeScale = 0;
             controlLock?.Lock();
-            cursorLock = Cursor.lockState; cursorVisible = Cursor.visible;
-            Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
+            cursorLock = Cursor.lockState;
+            cursorVisible = Cursor.visible;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
             canvas.gameObject.SetActive(true);
             statusLine.text = QolRunHud.StatusLine();
             ResetRestart();
@@ -126,10 +143,12 @@ namespace AscendJigoku.UI
             ResetRestart();
             canvas.gameObject.SetActive(false);
             Time.timeScale = GameSettings.GameplayTimeScale;
-            Cursor.lockState = cursorLock; Cursor.visible = cursorVisible;
+            Cursor.lockState = cursorLock;
+            Cursor.visible = cursorVisible;
             controlLock?.Unlock();
         }
 
+        // Hides the pause menu while settings are open; the callback brings it back when settings close.
         private void OpenSettings()
         {
             canvas.gameObject.SetActive(false);
@@ -152,10 +171,16 @@ namespace AscendJigoku.UI
                 return;
             }
             string scenePath = gameObject.scene.path;
-            if (!Application.CanStreamedLevelBeLoaded(scenePath)) { Debug.LogError("Scene is not in the build scene list: " + scenePath); ResetRestart(); return; }
+            if (!Application.CanStreamedLevelBeLoaded(scenePath))
+            {
+                Debug.LogError("Scene is not in the build scene list: " + scenePath);
+                ResetRestart();
+                return;
+            }
             leaving = true;
             Time.timeScale = GameSettings.GameplayTimeScale;
-            Cursor.lockState = cursorLock; Cursor.visible = cursorVisible;
+            Cursor.lockState = cursorLock;
+            Cursor.visible = cursorVisible;
             SceneManager.LoadScene(scenePath);
         }
 
@@ -168,7 +193,11 @@ namespace AscendJigoku.UI
         private void ReturnToMainMenu()
         {
             if (leaving) return;
-            if (!Application.CanStreamedLevelBeLoaded(mainMenuScene)) { Debug.LogError("Add " + mainMenuScene + " to the build scene list."); return; }
+            if (!Application.CanStreamedLevelBeLoaded(mainMenuScene))
+            {
+                Debug.LogError("Add " + mainMenuScene + " to the build scene list.");
+                return;
+            }
             leaving = true;
             Time.timeScale = 1;
             SceneManager.LoadScene(mainMenuScene);
@@ -181,6 +210,8 @@ namespace AscendJigoku.UI
             MainMenu.QuitApplication();
         }
 
+        // Builds the (initially hidden) menu once: dark overlay, title and a left-aligned option list. labels[i] and
+        // actions[i] must stay in the same order; firstButton gets the initial selection, restartButton changes its text.
         private void Build()
         {
             canvas = MenuStyle.CreateCanvas("Pause Canvas", 150, transform);
@@ -191,11 +222,14 @@ namespace AscendJigoku.UI
             System.Action[] actions = { Resume, RestartFromCheckpoint, OpenSettings, ReturnToMainMenu, Quit };
             for (int i = 0; i < labels.Length; i++)
             {
-                var button = MenuStyle.Button(options, labels[i], new Vector2(0, 112 - i * 56), actions[i], alignment: TextAnchor.MiddleLeft);
+                var button = MenuStyle.Button(
+                    options, labels[i], new Vector2(0, 112 - i * 56), actions[i], alignment: TextAnchor.MiddleLeft);
                 if (i == 0) firstButton = button;
                 if (i == 1) restartButton = button;
             }
-            statusLine = MenuStyle.Label(canvas, "Status", "", new Vector2(0, 0), new Vector2(900, 28), 18, TextAnchor.MiddleLeft, MenuStyle.MutedText);
+            // Run stats line (QolRunHud.StatusLine), pinned to the bottom-left corner.
+            statusLine = MenuStyle.Label(
+                canvas, "Status", "", new Vector2(0, 0), new Vector2(900, 28), 18, TextAnchor.MiddleLeft, MenuStyle.MutedText);
             var rect = statusLine.rectTransform;
             rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.zero;
             rect.anchoredPosition = new Vector2(60, 40);
