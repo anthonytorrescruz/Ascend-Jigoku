@@ -1,0 +1,10 @@
+title: Ascend Jigoku
+description: A 2D action platformer built for CSCI 3300
+url: https://anthonytorrescruz.github.io
+baseurl: /Ascend-Jigoku
+theme: jekyll-theme-primer
+exclude:
+  - Assets
+  - Packages
+  - ProjectSettings
+  - .vsconfig
