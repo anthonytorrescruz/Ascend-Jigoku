@@ -6,7 +6,9 @@ A single-player 2D action platformer built in Unity for CSCI 3300 Software Engin
 
 ## Play or open the project
 
-A final prebuilt release has not been published yet. Check [GitHub Releases](https://github.com/anthonytorrescruz/Ascend-Jigoku/releases) for downloadable builds. GitHub's automatic source ZIP is the Unity project, not a runnable game.
+**[Download Ascend Jigoku for Windows (v1.0.0)](https://github.com/anthonytorrescruz/Ascend-Jigoku/releases/download/v1.0.0/Ascend-Jigoku-Windows-v1.0.0.zip)** | [Release notes](https://github.com/anthonytorrescruz/Ascend-Jigoku/releases/tag/v1.0.0)
+
+No Unity installation is needed: download the ZIP, choose **Extract All**, then open **Ascend Jigoku.exe** inside the extracted folder. Keep all included files together. This build is for 64-bit Windows; macOS and Linux need separate builds. GitHub's automatic source ZIP is the Unity project, not the playable download.
 
 To run from source:
 

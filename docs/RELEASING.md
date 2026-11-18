@@ -1,31 +1,32 @@
-# Release and browser play
+# Releases and browser play
 
-Publish only after teammate integration, asset permission review and final acceptance testing. These instructions are preparation; no release or website is currently claimed to be live.
+## Current Windows release
 
-## Windows build for grading
+**[Download Ascend Jigoku v1.0.0 for 64-bit Windows](https://github.com/anthonytorrescruz/Ascend-Jigoku/releases/tag/v1.0.0).**
 
-1. Use Unity 6000.5.9f1 with Windows Build Support. Open the final integrated project and resolve compile/import errors.
-2. Confirm MainMenu is the first enabled scene in Build Profiles and START points to ProceduralPillar. Include every scene loaded at runtime, including Death. Retain development scenes in source; include them in the release only if intentionally needed.
-3. Build a normal Windows x86_64 player into a clean output folder. Confirm release/death-screen settings and desired debug visibility.
-4. Test the **built** application, then ZIP the entire folder including the executable, `_Data`, UnityPlayer.dll and all other build dependencies. Do not distribute the executable alone.
-5. After all source/docs are merged to GitHub, create a release/tag for that exact commit and attach the ZIP. Include supported OS, controls, launch steps, known limitations and actual validation performed.
-6. Link that release from README and the submission checklist. GitHub's automatically generated source ZIP is not this player build.
+Download `Ascend-Jigoku-Windows-v1.0.0.zip`, extract the entire ZIP, and run `Ascend Jigoku.exe`. Unity is not required. Keep the executable, `_Data` folder, DLLs and all other included dependencies together. GitHub's automatic source archives are not the playable build. macOS and Linux require separate builds.
 
-GitHub Releases supports downloadable software packages: https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases
+The game was built with Unity 6000.5.9f1 from UVCS changeset 133, Git commit `96d9a97bb1771a25239373a03b29a8a30d1641ba`, using an isolated copy of the published source. Packaging did not change gameplay. `RELEASE-INFO.txt` in the ZIP records the actual validation performed; full acceptance testing remains the team's responsibility.
 
-## Playing in a browser through GitHub Pages
+The release includes a SHA-256 checksum. On Windows, `Get-FileHash -Algorithm SHA256` can verify the downloaded ZIP against `SHA256SUMS.txt`.
 
-Yes: Unity can build the game for Web, and GitHub Pages can host the resulting static HTML/JavaScript/WebAssembly files. The normal repository page cannot execute a Unity project or Windows `.exe`.
+## Project website
 
-WebGL Build Support is already installed alongside this project's Unity editor. A Web build still needs its own compatibility verification, including saving, audio startup, controller support, performance and display sizing.
+**[Open the project page](https://anthonytorrescruz.github.io/Ascend-Jigoku/).** GitHub Pages hosts documentation and the download link. It does not run the game in the browser. Pages is published from the separate `gh-pages` branch.
 
-1. Add/select a Web build profile with MainMenu first and the required runtime scenes.
-2. For a simple static-host deployment, use uncompressed build files or an appropriate Unity decompression fallback; do not assume GitHub Pages supplies Unity-specific compression headers. Avoid requiring shared-memory/thread headers unless the hosting setup supports them.
-3. Produce the complete Web output (index.html plus Build/TemplateData and related files). Serve it over HTTP(S); opening the HTML directly from disk is not a valid deployment test.
-4. Publish that static output through a dedicated Pages branch or a Pages Actions deployment. Keep the source project and documentation separate from the generated Web output. A branch-based site commonly uses `.nojekyll`.
-5. Enable/configure Pages in the repository settings and verify the deployed build. The expected project-site URL would be `https://anthonytorrescruz.github.io/Ascend-Jigoku/` once deployed; this is **not a claim that the URL is live**.
-6. Add a real PLAY IN BROWSER link to README only after the deployed game works.
+## Creating another Windows release
 
-References: [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages), [Unity Web deployment](https://docs.unity3d.com/6000.0/Documentation/Manual/webgl-deploying.html).
+1. Finish integration and select the exact source commit to release. Use Unity 6000.5.9f1 with Windows Build Support.
+2. Build a normal Windows x86_64 player into a clean folder. Keep MainMenu first, with ProceduralPillar and Death available. Preserve the source project's scene and gameplay settings.
+3. Check the built application and record the actual results. Complete the acceptance checklist in TESTING.md before claiming full validation.
+4. Include instructions, controls, credits, version/source information and all build dependencies. ZIP the whole player folder, and calculate its SHA-256 checksum.
+5. Create a GitHub release/tag for the source commit, attach the ZIP and checksum, and publish accurate notes including known limitations.
+6. Update the README and Pages download links. Keep source/doc changes synchronized with the UVCS-to-GitHub mirror.
 
-Given the course deadline, a verified Windows release is the primary delivery path. Treat Web play as an additional convenience until it has equivalent validation. Save-file behavior in particular must be checked on the browser platform rather than assumed from Windows.
+## Optional browser build
+
+Browser play needs a separate Unity Web build; uploading Unity source or a Windows executable to Pages does not make it playable there. Validate saving, audio startup, controller input, performance and display scaling on Web before publishing it.
+
+For Pages, use uncompressed output or a supported decompression fallback rather than assuming Unity-specific compression headers are available. Serve the complete generated HTML/JavaScript/WebAssembly output over HTTPS and verify the deployed game before adding a PLAY IN BROWSER link.
+
+References: [GitHub Releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases), [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages), [Unity Windows builds](https://docs.unity3d.com/6000.0/Documentation/Manual/WindowsStandaloneBinaries.html), [Unity Web deployment](https://docs.unity3d.com/6000.0/Documentation/Manual/webgl-deploying.html).
